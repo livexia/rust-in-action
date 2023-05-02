@@ -1,3 +1,5 @@
+use regex::Regex;
+
 fn main() {
     let ctx_lines = 2;
     let needle = "oo";
@@ -42,6 +44,16 @@ through millions of pages?";
         for &(i, ref line) in local_ctx.iter() {
             let line_num = i + 1;
             println!("{}: {}", line_num, line);
+        }
+    }
+
+    let re = Regex::new("picture").unwrap();
+
+    for line in haystack.lines() {
+        let contains_substring = re.find(line);
+        match contains_substring {
+            Some(_) => print!("{}", line),
+            None => (),
         }
     }
 }
