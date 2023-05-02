@@ -1,6 +1,14 @@
+use clap::{arg, Command};
 use regex::Regex;
 
 fn main() {
+    let matches = Command::new("grep-lite")
+        .version("0.1")
+        .about("searches for patterns")
+        .arg(arg!(<pattern> "The pattern to search for").required(true))
+        .get_matches();
+
+    let pattern = matches.get_one::<String>("pattern").expect("required");
     let ctx_lines = 2;
     let needle = "oo";
     let haystack = "\
@@ -47,12 +55,12 @@ through millions of pages?";
         }
     }
 
-    let re = Regex::new("picture").unwrap();
+    let re = Regex::new(pattern).unwrap();
 
     for line in haystack.lines() {
         let contains_substring = re.find(line);
         match contains_substring {
-            Some(_) => print!("{}", line),
+            Some(_) => println!("{}", line),
             None => (),
         }
     }
