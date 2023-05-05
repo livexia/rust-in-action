@@ -1,6 +1,4 @@
-use rand::random;
-
-static mut ERROR: isize = 0;
+use rand::prelude::*;
 
 #[derive(Debug)]
 struct File {
@@ -16,56 +14,54 @@ impl File {
         }
     }
 
-    fn open(&mut self) -> bool {
-        true
+    fn open(self) -> Result<Self, String> {
+        if one_in(10_000) {
+            return Err("Permission denied".to_string());
+        }
+        Ok(self)
     }
 
-    fn close(&mut self) -> bool {
-        // testing with global variables to propagate error
-        unsafe {
-            if ERROR != 0 {
-                panic!("An error has occurred!")
-            }
+    fn close(self) -> Result<Self, String> {
+        if one_in(100_000) {
+            return Err("Interrupted by signal!".to_string());
         }
-
-        true
+        Ok(self)
     }
 
-    fn read(&self, save_to: &mut Vec<u8>) -> usize {
-        if random() && random() && random() {
-            // testing with global variables to propagate error
-            unsafe {
-                ERROR = 1;
-            }
-            return 0;
-        }
+    fn read(&self, save_to: &mut Vec<u8>) -> Result<usize, String> {
         let mut temp = self.data.clone();
         let read_length = temp.len();
 
         save_to.reserve(read_length);
         save_to.append(&mut temp);
-        read_length
+        Ok(read_length)
     }
 
-    fn write(&mut self, input: &[u8]) -> usize {
+    fn write(&mut self, input: &[u8]) -> Result<usize, String> {
         self.data.extend_from_slice(input);
-        input.len()
+        Ok(input.len())
     }
 }
 
-fn main() {
-    let mut file = File::new("2.txt".to_string());
+fn one_in(denominator: u32) -> bool {
+    thread_rng().gen_ratio(1, denominator)
+}
+
+fn main() -> Result<(), String> {
+    // for _ in 0..1_000_000 {
+    let file = File::new("2.txt".to_string());
 
     let mut buffer = vec![];
 
-    file.open();
-    file.write(&[114, 117, 115, 116, 31]);
-    file.read(&mut buffer);
-    file.close();
-
+    let mut file = file.open()?;
+    file.write(&[114, 117, 115, 116, 31])?;
+    let file_length = file.read(&mut buffer)?;
     let text = String::from_utf8_lossy(&buffer);
-
     println!("{:?}", file);
-    println!("{} is {} byte long", file.name, file.data.len());
+    println!("{} is {} byte long", file.name, file_length);
     println!("{}", text);
+    file.close()?;
+    // }
+
+    Ok(())
 }
