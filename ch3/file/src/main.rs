@@ -1,3 +1,7 @@
+use rand::random;
+
+static mut ERROR: isize = 0;
+
 #[derive(Debug)]
 struct File {
     name: String,
@@ -17,10 +21,24 @@ impl File {
     }
 
     fn close(&mut self) -> bool {
+        // testing with global variables to propagate error
+        unsafe {
+            if ERROR != 0 {
+                panic!("An error has occurred!")
+            }
+        }
+
         true
     }
 
     fn read(&self, save_to: &mut Vec<u8>) -> usize {
+        if random() && random() && random() {
+            // testing with global variables to propagate error
+            unsafe {
+                ERROR = 1;
+            }
+            return 0;
+        }
         let mut temp = self.data.clone();
         let read_length = temp.len();
 
@@ -37,11 +55,11 @@ impl File {
 
 fn main() {
     let mut file = File::new("2.txt".to_string());
-    file.write(&[114, 117, 115, 116, 31]);
 
     let mut buffer = vec![];
 
     file.open();
+    file.write(&[114, 117, 115, 116, 31]);
     file.read(&mut buffer);
     file.close();
 
