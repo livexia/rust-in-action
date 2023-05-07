@@ -1,4 +1,5 @@
 use rand::prelude::*;
+use std::fmt::Display;
 
 #[derive(Debug, PartialEq)]
 enum FileState {
@@ -11,6 +12,14 @@ struct File {
     name: String,
     state: FileState,
     data: Vec<u8>,
+}
+
+trait Read {
+    fn read(&self, save_to: &mut Vec<u8>) -> Result<usize, String>;
+}
+
+trait Write {
+    fn write(&mut self, input: &[u8]) -> Result<usize, String>;
 }
 
 impl File {
@@ -43,12 +52,19 @@ impl File {
     }
 }
 
-trait Read {
-    fn read(&self, save_to: &mut Vec<u8>) -> Result<usize, String>;
+impl Display for FileState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FileState::Open => write!(f, "OPEN"),
+            FileState::Closed => write!(f, "CLOSED"),
+        }
+    }
 }
 
-trait Write {
-    fn write(&mut self, input: &[u8]) -> Result<usize, String>;
+impl Display for File {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "<{} ({})>", self.name, self.state)
+    }
 }
 
 impl Read for File {
@@ -94,6 +110,7 @@ fn main() -> Result<(), String> {
     let file_length = file.read(&mut buffer)?;
     let text = String::from_utf8_lossy(&buffer);
     println!("{:?}", file);
+    println!("{}", file); // testing Display
     println!("{} is {} byte long", file.name, file_length);
     println!("{}", text);
     file.close()?;
