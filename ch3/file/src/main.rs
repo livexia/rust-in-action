@@ -41,7 +41,17 @@ impl File {
         self.state = FileState::Closed;
         Ok(self)
     }
+}
 
+trait Read {
+    fn read(&self, save_to: &mut Vec<u8>) -> Result<usize, String>;
+}
+
+trait Write {
+    fn write(&mut self, input: &[u8]) -> Result<usize, String>;
+}
+
+impl Read for File {
     fn read(&self, save_to: &mut Vec<u8>) -> Result<usize, String> {
         if let FileState::Closed = self.state {
             return Err("File must be open for reading first!".to_string());
@@ -53,7 +63,9 @@ impl File {
         save_to.append(&mut temp);
         Ok(read_length)
     }
+}
 
+impl Write for File {
     fn write(&mut self, input: &[u8]) -> Result<usize, String> {
         self.data.extend_from_slice(input);
         Ok(input.len())
