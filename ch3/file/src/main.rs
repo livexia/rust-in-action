@@ -32,6 +32,12 @@ pub trait Write {
 
 impl File {
     /// New files are assumed to be empty, but a name is required.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let f = File::new("f1.txt");
+    /// ```
     pub fn new(name: String) -> Self {
         File {
             name,
