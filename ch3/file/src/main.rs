@@ -1,8 +1,11 @@
+//! Simulating fules one step at a time
+
 use rand::prelude::*;
 use std::fmt::Display;
 
+/// Represents a file state
 #[derive(Debug, PartialEq)]
-enum FileState {
+pub enum FileState {
     Open,
     Closed,
 }
@@ -92,6 +95,7 @@ fn one_in(denominator: u32) -> bool {
     thread_rng().gen_ratio(1, denominator)
 }
 
+#[allow(clippy::read_zero_byte_vec)]
 fn main() -> Result<(), String> {
     // for _ in 0..1_000_000 {
     let file = File::new("2.txt".to_string());
