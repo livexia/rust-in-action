@@ -3,15 +3,26 @@ enum StatusMessage {
     Ok,
 }
 
-fn check_status(sat_id: u64) -> StatusMessage {
-    let _ = sat_id;
+#[derive(Debug)]
+struct CubeSat {
+    id: u64,
+}
+
+impl CubeSat {
+    fn new(id: u64) -> Self {
+        Self { id }
+    }
+}
+
+fn check_status(sat: CubeSat) -> StatusMessage {
+    let _ = sat;
     StatusMessage::Ok
 }
 
 fn main() {
-    let sat_a = 0;
-    let sat_b = 1;
-    let sat_c = 2;
+    let sat_a = CubeSat::new(0);
+    let sat_b = CubeSat::new(1);
+    let sat_c = CubeSat::new(2);
 
     let a_status = check_status(sat_a);
     let b_status = check_status(sat_b);
