@@ -50,6 +50,22 @@ impl CubeSat {
     }
 }
 
+impl Copy for CubeSat {}
+
+impl Clone for CubeSat {
+    fn clone(&self) -> Self {
+        Self { id: self.id }
+    }
+}
+
+impl Copy for StatusMessage {}
+
+impl Clone for StatusMessage {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
 fn check_status(sat: &CubeSat) -> StatusMessage {
     let _ = sat.id;
     StatusMessage::Ok
