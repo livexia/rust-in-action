@@ -1,3 +1,6 @@
+use std::cell::RefCell;
+use std::rc::Rc;
+
 #[derive(Debug)]
 enum StatusMessage {
     Ok,
@@ -19,7 +22,10 @@ struct MailBox {
     messages: Vec<Message>,
 }
 
-struct GroundStation;
+#[derive(Debug)]
+struct GroundStation {
+    radio_freq: f64, // MHz
+}
 
 impl MailBox {
     fn new() -> Self {
@@ -72,6 +78,10 @@ fn check_status(sat: &CubeSat) -> StatusMessage {
 }
 
 impl GroundStation {
+    fn new(radio_freq: f64) -> Self {
+        Self { radio_freq }
+    }
+
     fn send(&self, mailbox: &mut MailBox, msg: Message) {
         mailbox.post(msg);
     }
@@ -112,7 +122,7 @@ fn main() {
     println!("a: {:?}, b: {:?}, c: {:?}", a_status, b_status, c_status);
 
     let mut mailbox = MailBox::new();
-    let base = GroundStation {};
+    let base = GroundStation::new(87.65);
 
     // Send
     let sat_ids = fetch_ids();
@@ -133,4 +143,25 @@ fn main() {
             println!("{:?}: {}", sat, msg.read());
         }
     }
+
+    let base = Rc::new(RefCell::new(GroundStation::new(87.65)));
+
+    println!("base: {:?}", base);
+
+    {
+        let mut base_2 = base.borrow_mut();
+        base_2.radio_freq -= 12.34;
+        println!("base_2: {:?}", base_2);
+        // After this base_2 droped
+    }
+
+    // base_2 droped, so we can view what'is inside or base
+    println!("base: {:?}", base);
+
+    let mut base_3 = base.borrow_mut();
+    base_3.radio_freq += 43.21;
+
+    // base_3 is still alive, so we can not view what's inside base
+    println!("base: {:?}", base);
+    println!("base_3: {:?}", base_3);
 }
