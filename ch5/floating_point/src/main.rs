@@ -1,38 +1,53 @@
+const BIAS: i32 = 127;
+const RADIX: f32 = 2.0;
+
 fn main() {
-    let bits = 42.42f32.to_bits();
-    const BIAS: i32 = 127;
-    const RADIX: f32 = 2.0;
-    println!("42.42: {bits:032b}");
-    let sign_bit = bits >> 31;
-    // unary minus has lower precedence than method calls
-    let sign = (-1i32).pow(sign_bit) as f32;
-    let exponent_ = (bits >> 23) & 0xff;
-    let exponent = (exponent_ as i32) - BIAS;
-    let mantissa_ = (bits << 9) >> 9;
-    let mantissa = decode_mantissa(mantissa_);
-    let result = sign * mantissa * RADIX.powi(exponent);
-    println!("Sign bit: {sign_bit:01b}");
-    println!("Exponent bit: {exponent_:08b}");
-    println!("Mantissa bit: {mantissa_:023b}");
-    println!("---- Decode ----");
-    println!("Sign: {sign}");
-    println!("Exponent: {exponent}");
-    println!("Mantissa: {mantissa}");
-    println!("Result: {}", result);
-    assert_eq!(42.42, result);
+    let n: f32 = 42.42;
+
+    let (sign_, exp_, frac) = to_parts(n);
+    let (sign, exp, mant) = decode(sign_, exp_, frac);
+
+    let n_ = from_parts(sign, exp, mant);
+
+    println!("{n} -> {n_}");
+    println!("feld     |  as bits | as real number");
+    println!("sign     |        {sign_:01b} | {sign}");
+    println!("exponent | {exp_:08b} | {exp}");
+    println!("mantissa | {frac:023b} | {mant}");
+    assert_eq!(n, n_);
 }
 
-/// nonspecial cases
-fn decode_mantissa(mantissa_bit: u32) -> f32 {
+/// dissect
+fn to_parts(n: f32) -> (u32, u32, u32) {
+    let bits = n.to_bits();
+    let sign = bits >> 31;
+    let exponent = (bits >> 23) & 0xff;
+    let fraction = (bits << 9) >> 9;
+    (sign, exponent, fraction)
+}
+
+/// decode
+fn decode(sign: u32, exponent: u32, fraction: u32) -> (f32, f32, f32) {
+    // unary minus has lower precedence than method calls
+    let sign = (-1i32).pow(sign) as f32;
+
+    let exponent = RADIX.powi((exponent as i32) - BIAS);
+
+    // nonspecial cases
     // implicit 24th bit
     let mut mantissa = 1.0;
     for i in 0..23 {
         let mask = 1 << i;
-        let one_at_bit_i = mantissa_bit & mask;
+        let one_at_bit_i = fraction & mask;
         if one_at_bit_i != 0 {
             let weight = 2f32.powf(i as f32 - 23.0);
             mantissa += weight;
         }
     }
-    mantissa
+    (sign, exponent, mantissa)
+}
+
+// build
+fn from_parts(sign: f32, exponent: f32, mantissa: f32) -> f32 {
+    sign * exponent * mantissa
 }
