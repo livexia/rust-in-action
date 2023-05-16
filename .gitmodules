@@ -1,0 +1,3 @@
+[submodule "ch5/yet-another-rchip8"]
+	path = ch5/yet-another-rchip8
+	url = git@github.com:livexia/yet-another-rchip8.git
