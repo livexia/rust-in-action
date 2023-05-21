@@ -1,5 +1,3 @@
-use std::println;
-
 static B: [u8; 10] = [99, 97, 114, 114, 121, 116, 111, 119, 109, 108];
 static C: [u8; 11] = [116, 104, 97, 110, 107, 115, 102, 105, 115, 104, 0];
 
@@ -29,7 +27,11 @@ fn main() {
     // After b_string and c_cow out of scope program is crashing,
     // because with String now b_string has the ownership of B
     // when b_string droped, B is also droped?
-    //
+    // and modify b_string will not work(realloc)
+    // String take ownership of the pointer and manage it
+    // see: https://stackoverflow.com/a/52651347
+    // and: https://doc.rust-lang.org/std/string/struct.String.html#method.from_raw_parts
+    // and: https://stackoverflow.com/q/60007368
     println!("b_string: {b_string}");
     drop(b_string);
     println!("After drop b_string, program crashing");
@@ -46,8 +48,11 @@ fn decoding() -> String {
 
     let c: Cow<str>;
 
+    let d: Cow<str>;
+
     // SAFETY: this is unsafe, will crasing program
     // this is bad, should be avoid
+    // see: https://doc.rust-lang.org/std/string/struct.String.html#method.from_raw_parts
     unsafe {
         let b_ptr = &B as *const u8 as *mut u8;
 
@@ -56,7 +61,16 @@ fn decoding() -> String {
         let c_ptr = &C as *const u8 as *const c_char;
 
         c = CStr::from_ptr(c_ptr).to_string_lossy();
+
+        // This is very unsafe, reading from a pointer, without knowing the string length
+        // will try to reading all contiunous memory as char
+        // so the d will be decoding both B and C
+        // d = carrytowmlthanksfish
+        let d_ptr = &B as *const u8 as *const c_char;
+
+        d = CStr::from_ptr(d_ptr).to_string_lossy();
     }
     println!("a: {a}, b: {b}, c: {c}");
+    println!("d: {d}");
     b
 }
