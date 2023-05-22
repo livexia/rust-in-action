@@ -9,6 +9,15 @@ fn main() {
 
     println!("a: {} ({:p}...0x{:x})", a, a_ptr, a_addr + 7);
 
+    let ptr = 43 as *const Vec<String>;
+
+    // SAFTEY: this is bad
+    unsafe {
+        let new_addr = ptr.offset(4);
+        println!("{:p} -> {:p}", ptr, new_addr);
+        // println!("{:?}", *ptr); // this will panic
+    }
+
     let b = &B;
     let c = &C;
     let p_b = u64::from_str_radix(format!("{b:p}").strip_prefix("0x").unwrap(), 16).unwrap();
