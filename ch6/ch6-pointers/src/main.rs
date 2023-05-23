@@ -38,6 +38,14 @@ fn main() {
     println!("After change e[10] to 100: {:?}", e);
     println!("C is still unchanged: {:?}", C);
 
+    assert_eq!(is_strong("testabc"), true);
+    assert_eq!(is_strong("TESTABCDE000".to_string()), true);
+    assert_eq!(is_strong(&("abcdeee".to_string())), true);
+
+    assert_eq!(is_strong_2("testabc"), true);
+    assert_eq!(is_strong_2("TESTABCDE000".to_string()), true);
+    assert_eq!(is_strong_2(&("abcdeee".to_string())), true);
+
     let b_string = decoding();
     // After b_string and c_cow out of scope program is crashing,
     // because with String now b_string has the ownership of B
@@ -53,6 +61,7 @@ fn main() {
     println!("&B -> {:p}", &B);
 }
 
+use std::assert_eq;
 use std::borrow::Cow;
 use std::ffi::CStr;
 use std::os::raw::c_char;
@@ -88,4 +97,12 @@ fn decoding() -> String {
     println!("a: {a}, b: {b}, c: {c}");
     println!("d: {d}");
     b
+}
+
+fn is_strong<T: AsRef<str>>(password: T) -> bool {
+    password.as_ref().len() > 5
+}
+
+fn is_strong_2<T: Into<String>>(password: T) -> bool {
+    password.into().len() > 5
 }
