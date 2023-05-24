@@ -19,5 +19,28 @@ fn main() {
     assert_eq!(is_strong_2("TESTABCDE000".to_string()), true);
     assert_eq!(is_strong_2(&("abcdeee".to_string())), true);
 
-    println!("Hello, world!");
+    using_box();
+}
+
+fn using_box() {
+    let a = Box::new(1);
+    let b = Box::new(2);
+    let c = Box::new(3);
+
+    // *a get the T, & get the &T
+    // pointer should point on the heap
+    let a_ptr = &(*a) as *const i32;
+
+    println!("a + b + c = {}", *a + *b + *c);
+
+    drop(a);
+
+    let d = Box::new(1);
+
+    let d_ptr = &(*d) as *const i32;
+
+    println!("d + b + c = {}", *d + *b + *c);
+
+    println!("a_ptr: {a_ptr:p}");
+    println!("d_ptr: {d_ptr:p}");
 }
