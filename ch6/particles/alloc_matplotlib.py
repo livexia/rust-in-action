@@ -12,10 +12,10 @@ times = [line[1] for line in data]
 
 print(f"size count: {len(sizes)}, time count: {len(times)}")
 
-plt.plot(times, sizes, "r.")
+plt.plot(sizes, times, "r.")
 plt.xscale("log", base=2)
 plt.yscale("log")
 plt.xlabel("Allocation size (bytes)")
 plt.ylabel("Allocation duration (ns)")
-plt.axis([1, 100000, 10, 10000])
+plt.axis([1, 100000, 0, 10000])
 plt.show()
