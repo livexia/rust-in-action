@@ -6,10 +6,11 @@ use rand::prelude::*;
 
 use std::alloc::{GlobalAlloc, Layout, System};
 
+use std::assert_eq;
+use std::cell::Cell;
 use std::time::Instant;
 
-// this attribute run on macos getting illegal hardware instruction
-// #[global_allocator]
+#[global_allocator]
 static ALLOCATOR: ReportingAllocator = ReportingAllocator;
 
 struct ReportingAllocator;
@@ -25,7 +26,12 @@ unsafe impl GlobalAlloc for ReportingAllocator {
         let time_taken = end - start;
         let bytes_requested = layout.size();
 
-        eprintln!("{}\t{}", bytes_requested, time_taken.as_nanos());
+        // illegal hardware instruction when using dbg! or println! or eprintln
+        // issue from book's code: https://github.com/rust-in-action/code/issues/93
+        // Fix: https://github.com/andrewhickman/logging-allocator/blob/master/src/lib.rs#L42-L57
+        // and: https://github.com/rust-in-action/code/commit/a0731bc66504fdd74f4d548059cb6ad2fb34539a
+        // and: https://github.com/rust-in-action/code/pull/106
+        run_guarded(|| eprintln!("{}\t{}", bytes_requested, time_taken.as_nanos()));
 
         ptr
     }
@@ -33,6 +39,20 @@ unsafe impl GlobalAlloc for ReportingAllocator {
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
         System.dealloc(ptr, layout)
     }
+}
+
+fn run_guarded<F>(f: F)
+where
+    F: FnOnce(),
+{
+    thread_local!(static GUARD: Cell<bool> = Cell::new(false));
+
+    GUARD.with(|guard| {
+        if !guard.replace(true) {
+            f();
+            guard.set(false);
+        }
+    })
 }
 
 struct World {
@@ -109,6 +129,7 @@ impl World {
             let mut to_delete = None;
 
             // with book's code, this always remove first particel(oldest)
+            // this is deny by clippy: #[deny(clippy::never_loop)]
             for (i, particle) in self.particles.iter().enumerate() {
                 if particle.color[3] < 0.02 {
                     to_delete = Some(i);
@@ -159,12 +180,11 @@ fn main() {
 
         window.draw_2d(&event, |context, graphics, _device| {
             clear([0.15, 0.17, 0.17, 0.9], graphics);
-            rectangle(
-                [1.0, 0.0, 0.0, 1.0], // red
-                [0.0, 0.0, 100.0, 100.0],
-                context.transform,
-                graphics,
-            );
+
+            for p in &mut world.particles {
+                let rect = [p.position[0], p.position[1], p.width, p.height];
+                rectangle(p.color, rect, context.transform, graphics);
+            }
         });
     }
 }
