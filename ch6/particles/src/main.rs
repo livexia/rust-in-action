@@ -8,7 +8,8 @@ use std::alloc::{GlobalAlloc, Layout, System};
 
 use std::time::Instant;
 
-#[global_allocator]
+// this attribute run on macos getting illegal hardware instruction
+// #[global_allocator]
 static ALLOCATOR: ReportingAllocator = ReportingAllocator;
 
 struct ReportingAllocator;
@@ -84,15 +85,80 @@ impl Particle {
     }
 }
 
+impl World {
+    fn new(width: f64, height: f64) -> Self {
+        Self {
+            curent_turn: 0,
+            particles: Vec::new(),
+            height,
+            width,
+            rng: thread_rng(),
+        }
+    }
+
+    fn add_shapes(&mut self, n: i32) {
+        for _ in 0..n.abs() {
+            let particle = Particle::new(self);
+            let boxed_particel = Box::new(particle);
+            self.particles.push(boxed_particel);
+        }
+    }
+
+    fn remove_shapes(&mut self, n: i32) {
+        for _ in 0..n.abs() {
+            let mut to_delete = None;
+
+            // with book's code, this always remove first particel(oldest)
+            for (i, particle) in self.particles.iter().enumerate() {
+                if particle.color[3] < 0.02 {
+                    to_delete = Some(i);
+                }
+                break; // bug?
+            }
+
+            if let Some(i) = to_delete {
+                self.particles.remove(i);
+            } else {
+                self.particles.remove(0);
+            }
+        }
+    }
+
+    fn update(&mut self) {
+        let n = self.rng.gen_range(-3..=3);
+
+        if n > 0 {
+            self.add_shapes(n);
+        } else {
+            self.remove_shapes(n);
+        }
+
+        // dealloc
+        self.particles.shrink_to_fit();
+
+        for shape in &mut self.particles {
+            shape.update();
+        }
+
+        self.curent_turn += 1;
+    }
+}
+
 fn main() {
-    let (width, height) = (1280, 960);
+    let (width, height) = (1280.0, 960.0);
     let mut window: PistonWindow = WindowSettings::new("Particles", [width, height])
         .exit_on_esc(true)
         .build()
         .unwrap();
+
+    let mut world = World::new(width, height);
+    world.add_shapes(1000);
+
     while let Some(event) = window.next() {
+        world.update();
+
         window.draw_2d(&event, |context, graphics, _device| {
-            clear([1.0; 4], graphics);
+            clear([0.15, 0.17, 0.17, 0.9], graphics);
             rectangle(
                 [1.0, 0.0, 0.0, 1.0], // red
                 [0.0, 0.0, 100.0, 100.0],
