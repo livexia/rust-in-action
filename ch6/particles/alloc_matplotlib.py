@@ -5,15 +5,17 @@ with open("alloc.tsv") as f:
 
 data = [line.split("\t", 1) for line in read_data]
 
+print(f"data count: {len(data)}")
+
 sizes = [line[0] for line in data]
 times = [line[1] for line in data]
 
-print(f"data count: {len(data)}, size count: {len(sizes)}, time count: {len(times)}")
+print(f"size count: {len(sizes)}, time count: {len(times)}")
 
 plt.plot(times, sizes, "r.")
 plt.xscale("log", base=2)
 plt.yscale("log")
 plt.xlabel("Allocation size (bytes)")
 plt.ylabel("Allocation duration (ns)")
-plt.axis([0, 10000, 10, 1000])
+plt.axis([1, 100000, 10, 10000])
 plt.show()

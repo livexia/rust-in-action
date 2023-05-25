@@ -125,6 +125,9 @@ impl World {
     }
 
     fn remove_shapes(&mut self, n: i32) {
+        if self.particles.is_empty() {
+            return;
+        }
         for _ in 0..n.abs() {
             let mut to_delete = None;
 
@@ -147,7 +150,7 @@ impl World {
     }
 
     fn update(&mut self) {
-        let n = self.rng.gen_range(-3..=3);
+        let n = self.rng.gen_range(-100..=100);
 
         if n > 0 {
             self.add_shapes(n);
