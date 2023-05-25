@@ -133,8 +133,9 @@ impl World {
             for (i, particle) in self.particles.iter().enumerate() {
                 if particle.color[3] < 0.02 {
                     to_delete = Some(i);
+                    break;
                 }
-                break; // bug?
+                // break; // this is a bug
             }
 
             if let Some(i) = to_delete {
