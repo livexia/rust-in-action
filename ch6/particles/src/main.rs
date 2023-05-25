@@ -6,7 +6,6 @@ use rand::prelude::*;
 
 use std::alloc::{GlobalAlloc, Layout, System};
 
-use std::assert_eq;
 use std::cell::Cell;
 use std::time::Instant;
 
@@ -57,7 +56,8 @@ where
 
 struct World {
     curent_turn: u64,
-    particles: Vec<Box<Particle>>, // using box to use allocator
+    #[allow(clippy::vec_box)]
+    particles: Vec<Box<Particle>>, // using box to incur an extra memory allocation
     height: f64,
     width: f64,
     rng: ThreadRng,
@@ -85,9 +85,9 @@ impl Particle {
         Self {
             height: 4.0,
             width: 4.0,
-            position: [x, y].into(),
-            velocity: [x_velocity, y_velocity].into(),
-            acceleration: [x_acceleration, y_acceleration].into(),
+            position: [x, y],
+            velocity: [x_velocity, y_velocity],
+            acceleration: [x_acceleration, y_acceleration],
             color: [1.0, 1.0, 1.0, 0.99],
         }
     }
