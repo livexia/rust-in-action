@@ -125,10 +125,10 @@ impl World {
     }
 
     fn remove_shapes(&mut self, n: i32) {
-        if self.particles.is_empty() {
-            return;
-        }
         for _ in 0..n.abs() {
+            if self.particles.is_empty() {
+                return;
+            }
             let mut to_delete = None;
 
             // with book's code, this always remove first particel(oldest)
