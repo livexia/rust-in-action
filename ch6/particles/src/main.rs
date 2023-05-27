@@ -109,7 +109,7 @@ impl World {
     fn new(width: f64, height: f64) -> Self {
         Self {
             curent_turn: 0,
-            particles: Vec::new(),
+            particles: Vec::with_capacity(1000),
             height,
             width,
             rng: thread_rng(),
