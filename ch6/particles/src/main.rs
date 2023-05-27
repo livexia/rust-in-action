@@ -101,7 +101,7 @@ impl Particle {
         self.acceleration = mul_scalar(self.acceleration, 0.7);
 
         // makes the particle mor transparent over time
-        self.color[3] *= 0.95;
+        self.color[3] *= 0.995;
     }
 }
 
@@ -109,7 +109,7 @@ impl World {
     fn new(width: f64, height: f64) -> Self {
         Self {
             curent_turn: 0,
-            particles: Vec::with_capacity(1000),
+            particles: Vec::with_capacity(2000),
             height,
             width,
             rng: thread_rng(),
@@ -149,7 +149,7 @@ impl World {
     }
 
     fn update(&mut self) {
-        let n = self.rng.gen_range(-100..=100);
+        let n = self.rng.gen_range(-10..=10);
 
         if n > 0 {
             self.add_shapes(n);
@@ -158,7 +158,8 @@ impl World {
         }
 
         // dealloc
-        self.particles.shrink_to_fit();
+        // this could caused a lot dealloc
+        // self.particles.shrink_to_fit();
 
         for shape in &mut self.particles {
             shape.update();
