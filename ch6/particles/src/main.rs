@@ -57,7 +57,7 @@ where
 struct World {
     curent_turn: u64,
     #[allow(clippy::vec_box)]
-    particles: Vec<Box<Particle>>, // using box to incur an extra memory allocation
+    particles: Vec<Particle>, // using box to incur an extra memory allocation
     height: f64,
     width: f64,
     rng: ThreadRng,
@@ -119,8 +119,7 @@ impl World {
     fn add_shapes(&mut self, n: i32) {
         for _ in 0..n.abs() {
             let particle = Particle::new(self);
-            let boxed_particel = Box::new(particle);
-            self.particles.push(boxed_particel);
+            self.particles.push(particle);
         }
     }
 
