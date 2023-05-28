@@ -1,42 +1,31 @@
-#![feature(strict_provenance)]
-use std::println;
+use libc::{c_int, pid_t};
+use std::io;
 
-static GLOBAL: i32 = 1000;
+use mach2::kern_return::KERN_SUCCESS;
+use mach2::port::{mach_port_name_t, MACH_PORT_NULL};
 
-fn noop() -> *const i32 {
-    let noop_local = 12345;
-    &noop_local as *const i32
-}
+type Pid = pid_t;
 
 fn main() {
-    let local_str = "a";
-    let local_int = 123;
-    let boxed_str = Box::new("b");
-    let boxed_int = Box::new(456);
-    let fn_int = noop();
+    println!("task: {:?}", task_for_pid(67024));
+}
 
-    let global_ptr = &GLOBAL as *const i32;
-    let local_str_ptr = local_str as *const str;
-    let local_int_ptr = &local_int as *const i32;
-    let boxed_str_ptr = Box::into_raw(boxed_str);
-    let boxed_int_ptr = Box::into_raw(boxed_int);
-
-    println!("GLOBAL:    {:p}", global_ptr);
-    println!("local_str: {:p}", local_str_ptr);
-    println!("local_int: {:p}", &local_int_ptr);
-    println!("boxed_str: {:p}", boxed_str_ptr);
-    println!("boxed_int: {:p}", boxed_int_ptr);
-    println!("fn_int:    {:p}", fn_int);
-
-    let max_ptr = global_ptr
-        .expose_addr()
-        .max(local_str_ptr.expose_addr())
-        .max(local_int_ptr.expose_addr())
-        .max(boxed_str_ptr.expose_addr())
-        .max(boxed_int_ptr.expose_addr())
-        .max(fn_int.expose_addr());
-
-    println!("max ptr:    0x{:0x}", max_ptr);
-    println!("as decimal: {}", max_ptr);
-    println!("half of the address space: {}", 2usize.pow(63))
+//
+// Referenced from <https://github.com/rbspy/proc-maps/blob/master/src/mac_maps/mod.rs> (MIT)
+// Copyright (c) 2016 Julia Evans, Kamal Marhubi Portions (continuous integration setup) Copyright (c) 2016 Jorge Aparicio
+//
+pub fn task_for_pid(pid: Pid) -> io::Result<mach_port_name_t> {
+    let mut task: mach_port_name_t = MACH_PORT_NULL;
+    // sleep for 10ms to make sure we don't get into a race between `task_for_pid` and execing a new
+    // process. Races here can freeze the OS because of a Mac kernel bug on High Sierra.
+    // See https://jvns.ca/blog/2018/01/28/mac-freeze/ for more.
+    std::thread::sleep(std::time::Duration::from_millis(10));
+    unsafe {
+        let result =
+            mach2::traps::task_for_pid(mach2::traps::mach_task_self(), pid as c_int, &mut task);
+        if result != KERN_SUCCESS {
+            return Err(io::Error::last_os_error());
+        }
+    }
+    Ok(task)
 }
