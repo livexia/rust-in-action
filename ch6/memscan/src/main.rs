@@ -1,13 +1,41 @@
 use libc::{c_int, pid_t};
+use mach2::vm::mach_vm_read;
 use std::io;
 
-use mach2::kern_return::KERN_SUCCESS;
+use mach2::kern_return::{kern_return_t, KERN_SUCCESS};
 use mach2::port::{mach_port_name_t, MACH_PORT_NULL};
 
 type Pid = pid_t;
 
 fn main() {
-    println!("task: {:?}", task_for_pid(67024));
+    let task = task_for_pid(70793).unwrap();
+    println!("task: {task}");
+    let base_addr = 0x16d0ce534;
+    let size = 4;
+    let raw_data = vm_read(task, base_addr, size).unwrap();
+    let data: u32 =
+        unsafe { std::mem::transmute::<[u8; 4], u32>(raw_data[..4].try_into().unwrap()) };
+    println!("data at 0x{base_addr:0x} is {data}");
+}
+
+pub fn vm_read(task: mach_port_name_t, base_addr: usize, size: usize) -> io::Result<Vec<u8>> {
+    let mut buf = vec![0u8; size];
+    let mut read_len = 0;
+
+    let result = unsafe {
+        mach_vm_read(
+            task,
+            base_addr as _,
+            size as _,
+            buf.as_mut_ptr() as _,
+            &mut read_len,
+        )
+    };
+    if result != KERN_SUCCESS {
+        return Err(io::Error::last_os_error());
+    }
+    println!("{:?}", buf);
+    Ok(buf)
 }
 
 //
