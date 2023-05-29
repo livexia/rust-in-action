@@ -21,25 +21,6 @@ macro_rules! err {
 
 pub type Result<T> = result::Result<T, Box<dyn Error>>;
 
-pub fn search_value(
-    task: mach_port_name_t,
-    region_address: usize,
-    region_size: usize,
-    pattern: &[u8],
-) -> Result<Vec<usize>> {
-    let mut result = vec![];
-    let data_size = pattern.len();
-    for addr in (region_address..region_address + region_size).step_by(data_size) {
-        let raw_data = vm_read_overwrite(task, addr, data_size)?;
-        if raw_data == pattern {
-            result.push(addr);
-            println!("Found value {raw_data:?} at: 0x{addr:0x}");
-        }
-    }
-
-    Ok(result)
-}
-
 pub fn vm_region(task: mach_port_name_t, mut address: mach_vm_address_t) -> Result<(usize, usize)> {
     let mut size: mach_vm_size_t = unsafe { std::mem::zeroed() };
     let mut info: vm_region_basic_info_data_64_t = unsafe { std::mem::zeroed() };
@@ -123,28 +104,73 @@ pub fn task_for_pid(pid: Pid) -> Result<mach_port_name_t> {
     Ok(task)
 }
 
+pub fn search_region(
+    task: mach_port_name_t,
+    region_address: usize,
+    region_size: usize,
+    pattern: &[u8],
+) -> Result<Vec<usize>> {
+    let mut result = vec![];
+    let data_size = pattern.len();
+    for addr in (region_address..region_address + region_size).step_by(data_size) {
+        let raw_data = vm_read_overwrite(task, addr, data_size)?;
+        if raw_data == pattern {
+            result.push(addr);
+            // println!("Found value {raw_data:?} at: 0x{addr:0x}");
+        }
+    }
+
+    Ok(result)
+}
+
+pub fn search_list(
+    task: mach_port_name_t,
+    address_list: &[usize],
+    pattern: &[u8],
+) -> Result<Vec<usize>> {
+    let mut result = vec![];
+    let data_size = pattern.len();
+    for &addr in address_list {
+        if let Ok(raw_data) = vm_read_overwrite(task, addr, data_size) {
+            if raw_data == pattern {
+                result.push(addr);
+            }
+        } else {
+        }
+    }
+
+    Ok(result)
+}
+
 fn main() -> Result<()> {
-    let pid = 85555;
+    let pid = 88650;
     let task = task_for_pid(pid)?;
     println!("pid: {pid}, task: {task}");
 
     let mut address = 0;
     let mut size = 0;
+    let mut result = vec![];
     while address < usize::MAX {
         (address, size) = vm_region(task, (address + size) as _)?;
         println!("address: 0x{address:0x} size: {size}");
-        if let Ok(result) = search_value(task, address, size, &900usize.to_le_bytes()) {
+        if let Ok(mut r) = search_region(task, address, size, &21u8.to_le_bytes()) {
+            result.append(&mut r);
+            println!("result length: {}", result.len());
         } else {
             println!("Err");
         };
+        if let Ok(r) = search_list(task, &result, &21u8.to_le_bytes()) {
+            result = r;
+            println!("result length: {}", result.len());
+        }
     }
 
-    vm_write(
-        task,
-        0x16d0ce540,
-        &[255, 255, 255, 255, 255, 255, 255, 255],
-        8,
-    )?;
+    // vm_write(
+    //     task,
+    //     0x16d0ce540,
+    //     &[255, 255, 255, 255, 255, 255, 255, 255],
+    //     8,
+    // )?;
 
     Ok(())
 }
