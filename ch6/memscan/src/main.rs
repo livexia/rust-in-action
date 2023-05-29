@@ -59,7 +59,10 @@ pub fn vm_region(task: mach_port_name_t, mut address: mach_vm_address_t) -> Resu
     };
 
     if result != KERN_SUCCESS {
-        return Err(Box::new(io::Error::last_os_error()));
+        return err!(
+            "Get regin info at 0x{address:0x}, code: {result}, {:?}",
+            io::Error::last_os_error()
+        );
     }
     Ok((address as usize, size as usize))
 }
@@ -78,7 +81,10 @@ pub fn vm_read_overwrite(task: mach_port_name_t, address: usize, size: usize) ->
         )
     };
     if result != KERN_SUCCESS {
-        return Err(Box::new(io::Error::last_os_error()));
+        return err!(
+            "Read at 0x{address:0x}, code: {result}, {:?}",
+            io::Error::last_os_error()
+        );
     }
     Ok(buf)
 }
@@ -86,7 +92,10 @@ pub fn vm_read_overwrite(task: mach_port_name_t, address: usize, size: usize) ->
 pub fn vm_write(task: mach_port_name_t, address: usize, buffer: &[u8], size: usize) -> Result<()> {
     let result = unsafe { mach_vm_write(task, address as _, buffer.as_ptr() as _, size as _) };
     if result != KERN_SUCCESS {
-        return Err(Box::new(io::Error::last_os_error()));
+        return err!(
+            "Write at 0x{address:0x}, code: {result}, {:?}",
+            io::Error::last_os_error()
+        );
     }
     Ok(())
 }
@@ -105,7 +114,10 @@ pub fn task_for_pid(pid: Pid) -> Result<mach_port_name_t> {
         let result =
             mach2::traps::task_for_pid(mach2::traps::mach_task_self(), pid as c_int, &mut task);
         if result != KERN_SUCCESS {
-            return Err(Box::new(io::Error::last_os_error()));
+            return err!(
+                "Get task for pid {pid}, code: {result}, {:?}",
+                io::Error::last_os_error()
+            );
         }
     }
     Ok(task)
