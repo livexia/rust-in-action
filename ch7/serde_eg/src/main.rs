@@ -1,9 +1,9 @@
-use bincode::serialize as to_bincode;
-use serde_cbor::to_vec as to_cbor;
-use serde_derive::Serialize;
-use serde_json::to_string as to_json;
+use bincode::{deserialize as from_bincode, serialize as to_bincode};
+use serde_cbor::{from_slice as from_cbor, to_vec as to_cbor};
+use serde_derive::{Deserialize, Serialize};
+use serde_json::{from_str as from_json, to_string as to_json};
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
 struct City {
     name: String,
     population: usize,
@@ -19,6 +19,7 @@ fn main() {
         longitude: 120.699364,
     };
 
+    // Serialize
     let as_json = to_json(&wenzhou).unwrap();
     let as_cbor = to_cbor(&wenzhou).unwrap();
     let as_bincode = to_bincode(&wenzhou).unwrap();
@@ -35,5 +36,11 @@ fn main() {
         "bincode (as UTF-8):\n{}\n",
         String::from_utf8_lossy(&as_bincode)
     );
+
+    // Deserialize
+    assert_eq!(from_json::<City>(&as_json).unwrap(), wenzhou);
+    assert_eq!(from_bincode::<City>(&as_bincode).unwrap(), wenzhou);
+    assert_eq!(from_cbor::<City>(&as_cbor).unwrap(), wenzhou);
+
     println!("Hello, world!");
 }
