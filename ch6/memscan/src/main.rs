@@ -1,16 +1,13 @@
 use libc::{c_int, pid_t};
 use mach2::message::mach_msg_type_number_t;
 use mach2::vm::{mach_vm_read_overwrite, mach_vm_region, mach_vm_write};
-use mach2::vm_region::{
-    vm_region_basic_info_data_64_t, vm_region_basic_info_data_t, vm_region_info_t,
-    VM_REGION_BASIC_INFO,
-};
+use mach2::vm_region::{vm_region_basic_info_data_64_t, vm_region_info_t, VM_REGION_BASIC_INFO};
 use mach2::vm_types::{mach_vm_address_t, mach_vm_size_t};
 use std::error::Error;
 use std::io;
 use std::result;
 
-use mach2::kern_return::{kern_return_t, KERN_SUCCESS};
+use mach2::kern_return::KERN_SUCCESS;
 use mach2::port::{mach_port_name_t, MACH_PORT_NULL};
 
 type Pid = pid_t;
