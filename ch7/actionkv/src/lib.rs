@@ -43,6 +43,10 @@ mod tests {
 
     #[test]
     fn it_works() {
-        todo!()
+        use byteorder::{ByteOrder, LittleEndian};
+        let mut buf = [11, 11, 11, 11, 11, 11];
+        for chunk in buf.chunks(2) {
+            assert_eq!((11_u16 << 8) + 11, LittleEndian::read_u16(chunk));
+        }
     }
 }
