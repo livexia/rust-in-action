@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 use std::fs::{File, OpenOptions};
-use std::io::{self, BufReader, Read, Result, Seek, SeekFrom};
+use std::io::{self, BufReader, BufWriter, Read, Result, Seek, SeekFrom, Write};
 use std::path::Path;
 
-use byteorder::{LittleEndian, ReadBytesExt};
+use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use crc::{Crc, CRC_32_ISO_HDLC};
 use serde_derive::{Deserialize, Serialize};
 
@@ -77,9 +77,28 @@ impl ActionKV {
         }
     }
 
-    pub fn insert(&mut self, key: &str, value: &str) -> Option<&[u8]> {
+    pub fn insert(&mut self, key: &str, value: &str) -> Result<()> {
         eprintln!("Insert key: {key}, value: {value}");
-        None
+        let mut f = BufWriter::new(&self.f);
+
+        let key_bytes: &ByteStr = key.as_bytes();
+        let key_len = key_bytes.len();
+
+        let value_bytes = value.as_bytes();
+        let value_len = value_bytes.len();
+
+        let mut buf: ByteString = Vec::with_capacity(key_len + value_len);
+        buf.extend_from_slice(key_bytes);
+        buf.extend_from_slice(value_bytes);
+
+        let crc = Crc::<u32>::new(&CRC_32_ISO_HDLC);
+        let checksum = crc.checksum(&buf);
+
+        f.write_u32::<LittleEndian>(checksum)?;
+        f.write_u32::<LittleEndian>(key_len as u32)?;
+        f.write_u32::<LittleEndian>(value_len as u32)?;
+        f.write_all(&buf)?;
+        Ok(())
     }
 
     pub fn delete(&mut self, key: &str) -> Option<&[u8]> {
