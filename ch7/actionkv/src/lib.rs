@@ -46,7 +46,7 @@ impl Store {
     }
 
     pub fn update(&mut self, key: &str, value: &str) -> Option<&u8> {
-        eprintln!("Update ket: {key}, value: {value}");
+        eprintln!("Update key: {key}, value: {value}");
         None
     }
 }
