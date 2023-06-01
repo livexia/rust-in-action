@@ -40,15 +40,15 @@ fn main() {
         }
         Commands::Insert { key, value } => {
             println!("Insert {key} {value}");
-            store.insert(key, value);
+            store.insert(key, value).unwrap();
         }
         Commands::Delete { key } => {
             println!("Delete {key}");
-            store.delete(key);
+            store.delete(key).unwrap();
         }
         Commands::Update { key, value } => {
             println!("Update {key} {value}");
-            store.update(key, value);
+            store.update(key, value).unwrap();
         }
     }
 }
