@@ -11,15 +11,19 @@ pub type Result<T> = result::Result<T, Box<dyn Error>>;
 
 pub struct ActionKV {}
 
-pub struct Vault {}
+pub struct Store {}
 
 impl ActionKV {
-    pub fn open(path: &Path) -> Result<Vault> {
+    pub fn open(path: &Path) -> Result<Store> {
         todo!()
     }
 }
 
-impl Vault {
+impl Store {
+    pub fn load(&mut self) -> Result<()> {
+        todo!()
+    }
+
     pub fn get(&self, key: &str) -> Option<&[u8]> {
         todo!()
     }
