@@ -101,14 +101,14 @@ impl ActionKV {
         Ok(())
     }
 
-    pub fn delete(&mut self, key: &str) -> Option<&[u8]> {
+    pub fn delete(&mut self, key: &str) -> Result<()> {
         eprintln!("Delete key: {key}");
-        None
+        self.insert(key, "")
     }
 
-    pub fn update(&mut self, key: &str, value: &str) -> Option<&u8> {
+    pub fn update(&mut self, key: &str, value: &str) -> Result<()> {
         eprintln!("Update key: {key}, value: {value}");
-        None
+        self.insert(key, value)
     }
 
     fn process_record<R: Read>(f: &mut R) -> Result<KeyValuePair> {
