@@ -15,40 +15,49 @@ pub struct Store {}
 
 impl ActionKV {
     pub fn open(path: &Path) -> Result<Store> {
-        todo!()
+        eprintln!("Open file: {path:?}");
+        Ok(Store::new())
     }
 }
 
 impl Store {
+    fn new() -> Self {
+        Self {}
+    }
+
     pub fn load(&mut self) -> Result<()> {
-        todo!()
+        eprintln!("Load store!");
+        Ok(())
     }
 
     pub fn get(&self, key: &str) -> Option<&[u8]> {
-        todo!()
+        eprintln!("Get key: {key}");
+        None
     }
 
     pub fn insert(&mut self, key: &str, value: &str) -> Option<&[u8]> {
-        todo!()
+        eprintln!("Insert key: {key}, value: {value}");
+        None
     }
 
     pub fn delete(&mut self, key: &str) -> Option<&[u8]> {
-        todo!()
+        eprintln!("Delete key: {key}");
+        None
     }
 
     pub fn update(&mut self, key: &str, value: &str) -> Option<&u8> {
-        todo!()
+        eprintln!("Update ket: {key}, value: {value}");
+        None
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn it_works() {
         use byteorder::{ByteOrder, LittleEndian};
-        let mut buf = [11, 11, 11, 11, 11, 11];
+        let buf = [11, 11, 11, 11, 11, 11];
         for chunk in buf.chunks(2) {
             assert_eq!((11_u16 << 8) + 11, LittleEndian::read_u16(chunk));
         }
