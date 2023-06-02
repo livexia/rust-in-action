@@ -39,8 +39,6 @@ impl ActionKV {
     }
 
     pub fn load(&mut self) -> Result<()> {
-        eprintln!("Load store!");
-
         let mut f = BufReader::new(&self.f);
 
         loop {
@@ -61,55 +59,45 @@ impl ActionKV {
         Ok(())
     }
 
-    pub fn get(&self, key: &str) -> Result<Option<&[u8]>> {
-        eprintln!("Get key: {key}");
-        if let Some(&position) = self.index.get(key.as_bytes()) {
+    pub fn get(&self, key: &ByteStr) -> Result<Option<ByteString>> {
+        if let Some(&position) = self.index.get(key) {
             let mut f = BufReader::new(&self.f);
             f.seek(SeekFrom::Start(position))?;
-            let kv = match ActionKV::process_record(&mut f) {
-                Ok(kv) => kv,
-                Err(err) => {
-                    if let io::ErrorKind::UnexpectedEof = err.kind() {}
-                    return Err(err);
-                }
-            };
-            eprintln!("kv: {:?}", kv);
-            todo!()
+            let kv = ActionKV::process_record(&mut f)?;
+            Ok(Some(kv.value.to_vec()))
         } else {
             Ok(None)
         }
     }
 
-    pub fn insert(&mut self, key: &str, value: &str) -> Result<()> {
-        eprintln!("Insert key: {key}, value: {value}");
+    pub fn insert(&mut self, key: &ByteStr, value: &ByteStr) -> Result<()> {
         let mut f = BufWriter::new(&self.f);
 
-        let key_bytes: &ByteStr = key.as_bytes();
-        let key_len = key_bytes.len();
+        let key_len = key.len();
+        let value_len = value.len();
 
-        let value_bytes = value.as_bytes();
-        let value_len = value_bytes.len();
-
-        let mut buf: ByteString = Vec::with_capacity(key_len + value_len);
-        buf.extend_from_slice(key_bytes);
-        buf.extend_from_slice(value_bytes);
+        let mut buf = ByteString::with_capacity(key_len + value_len);
+        buf.extend_from_slice(key);
+        buf.extend_from_slice(value);
 
         let checksum = crc32_checksum(&buf);
+
+        let position = f.stream_position()?;
 
         f.write_u32::<LittleEndian>(checksum)?;
         f.write_u32::<LittleEndian>(key_len as u32)?;
         f.write_u32::<LittleEndian>(value_len as u32)?;
         f.write_all(&buf)?;
+
+        self.index.insert(key.to_vec(), position);
         Ok(())
     }
 
-    pub fn delete(&mut self, key: &str) -> Result<()> {
-        eprintln!("Delete key: {key}");
-        self.insert(key, "")
+    pub fn delete(&mut self, key: &ByteStr) -> Result<()> {
+        self.insert(key, b"")
     }
 
-    pub fn update(&mut self, key: &str, value: &str) -> Result<()> {
-        eprintln!("Update key: {key}, value: {value}");
+    pub fn update(&mut self, key: &ByteStr, value: &ByteStr) -> Result<()> {
         self.insert(key, value)
     }
 

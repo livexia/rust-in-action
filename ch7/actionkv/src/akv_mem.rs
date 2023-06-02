@@ -36,19 +36,19 @@ fn main() {
 
     match &args.command {
         Commands::Get { key } => {
-            println!("Get {key}: {:?}", store.get(key));
+            println!("Get {key}: {:?}", store.get(key.as_bytes()));
         }
         Commands::Insert { key, value } => {
             println!("Insert {key} {value}");
-            store.insert(key, value).unwrap();
+            store.insert(key.as_bytes(), value.as_bytes()).unwrap();
         }
         Commands::Delete { key } => {
             println!("Delete {key}");
-            store.delete(key).unwrap();
+            store.delete(key.as_bytes()).unwrap();
         }
         Commands::Update { key, value } => {
             println!("Update {key} {value}");
-            store.update(key, value).unwrap();
+            store.update(key.as_bytes(), value.as_bytes()).unwrap();
         }
     }
 }
