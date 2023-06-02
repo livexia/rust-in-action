@@ -6,8 +6,9 @@ use std::io::{self, BufReader, BufWriter, Read, Result, Seek, SeekFrom, Write};
 use std::path::Path;
 
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
-use crc::{Crc, CRC_32_ISO_HDLC};
 use serde_derive::{Deserialize, Serialize};
+
+use checksum::crc32_checksum;
 
 type ByteString = Vec<u8>;
 
@@ -93,8 +94,7 @@ impl ActionKV {
         buf.extend_from_slice(key_bytes);
         buf.extend_from_slice(value_bytes);
 
-        let crc = Crc::<u32>::new(&CRC_32_ISO_HDLC);
-        let checksum = crc.checksum(&buf);
+        let checksum = crc32_checksum(&buf);
 
         f.write_u32::<LittleEndian>(checksum)?;
         f.write_u32::<LittleEndian>(key_len as u32)?;
@@ -125,8 +125,7 @@ impl ActionKV {
 
         debug_assert_eq!(buf.len(), data_len as usize);
 
-        let crc = Crc::<u32>::new(&CRC_32_ISO_HDLC);
-        let checksum = crc.checksum(&buf);
+        let checksum = crc32_checksum(&buf);
 
         if saved_checksum != checksum {
             panic!(
