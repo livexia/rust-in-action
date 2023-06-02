@@ -1,3 +1,5 @@
+pub mod checksum;
+
 use std::collections::HashMap;
 use std::fs::{File, OpenOptions};
 use std::io::{self, BufReader, BufWriter, Read, Result, Seek, SeekFrom, Write};
