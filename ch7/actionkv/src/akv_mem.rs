@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, str::FromStr};
 
 use clap::{Parser, Subcommand};
 use libactionkv::ActionKV;
@@ -12,7 +12,7 @@ struct Cli {
 
     /// Operation commands
     #[command(subcommand)]
-    command: Commands,
+    command: Option<Commands>,
 }
 
 #[derive(Subcommand, Debug)]
@@ -35,20 +35,25 @@ fn main() {
     store.load().expect("unable to load data");
 
     match &args.command {
-        Commands::Get { key } => {
-            println!("Get {key}: {:?}", store.get(key.as_bytes()));
-        }
-        Commands::Insert { key, value } => {
-            println!("Insert {key} {value}");
-            store.insert(key.as_bytes(), value.as_bytes()).unwrap();
-        }
-        Commands::Delete { key } => {
-            println!("Delete {key}");
-            store.delete(key.as_bytes()).unwrap();
-        }
-        Commands::Update { key, value } => {
-            println!("Update {key} {value}");
-            store.update(key.as_bytes(), value.as_bytes()).unwrap();
+        Some(command) => match command {
+            Commands::Get { key } => {
+                println!("Get {key}: {:?}", store.get(key.as_bytes()));
+            }
+            Commands::Insert { key, value } => {
+                println!("Insert {key} {value}");
+                store.insert(key.as_bytes(), value.as_bytes()).unwrap();
+            }
+            Commands::Delete { key } => {
+                println!("Delete {key}");
+                store.delete(key.as_bytes()).unwrap();
+            }
+            Commands::Update { key, value } => {
+                println!("Update {key} {value}");
+                store.update(key.as_bytes(), value.as_bytes()).unwrap();
+            }
+        },
+        None => {
+            todo!("interactive database")
         }
     }
 }
