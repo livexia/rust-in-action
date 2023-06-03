@@ -1,6 +1,7 @@
-use std::{path::PathBuf, str::FromStr};
+use std::io::{self, Write};
+use std::path::PathBuf;
 
-use clap::{Parser, Subcommand};
+use clap::{Command, FromArgMatches, Parser, Subcommand};
 use libactionkv::ActionKV;
 
 #[derive(Parser, Debug)]
@@ -12,11 +13,11 @@ struct Cli {
 
     /// Operation commands
     #[command(subcommand)]
-    command: Option<Commands>,
+    command: Option<Subcommands>,
 }
 
 #[derive(Subcommand, Debug)]
-enum Commands {
+enum Subcommands {
     /// Retrieves the value at key from the store
     Get { key: String },
     /// Adds a key-value pair to the store
@@ -27,6 +28,28 @@ enum Commands {
     Update { key: String, value: String },
 }
 
+impl Subcommands {
+    fn execute(&self, store: &mut ActionKV) {
+        match self {
+            Subcommands::Get { key } => {
+                println!("Get {key:?}: {:?}", store.get(key.as_bytes()));
+            }
+            Subcommands::Insert { key, value } => {
+                println!("Insert {key:?} {value}");
+                store.insert(key.as_bytes(), value.as_bytes()).unwrap();
+            }
+            Subcommands::Delete { key } => {
+                println!("Delete {key:?}");
+                store.delete(key.as_bytes()).unwrap();
+            }
+            Subcommands::Update { key, value } => {
+                println!("Update {key:?} {value:?}");
+                store.update(key.as_bytes(), value.as_bytes()).unwrap();
+            }
+        }
+    }
+}
+
 fn main() {
     let args = Cli::parse();
 
@@ -35,25 +58,29 @@ fn main() {
     store.load().expect("unable to load data");
 
     match &args.command {
-        Some(command) => match command {
-            Commands::Get { key } => {
-                println!("Get {key}: {:?}", store.get(key.as_bytes()));
-            }
-            Commands::Insert { key, value } => {
-                println!("Insert {key} {value}");
-                store.insert(key.as_bytes(), value.as_bytes()).unwrap();
-            }
-            Commands::Delete { key } => {
-                println!("Delete {key}");
-                store.delete(key.as_bytes()).unwrap();
-            }
-            Commands::Update { key, value } => {
-                println!("Update {key} {value}");
-                store.update(key.as_bytes(), value.as_bytes()).unwrap();
-            }
-        },
+        Some(command) => command.execute(&mut store),
         None => {
-            todo!("interactive database")
+            let prompt = Command::new("Interactive prompt").no_binary_name(true);
+            let mut prompt = Subcommands::augment_subcommands(prompt);
+            loop {
+                print!("[{path:?}]> ");
+                io::stdout().flush().expect("unable to flush stdout");
+
+                let mut buffer = String::new();
+                io::stdin()
+                    .read_line(&mut buffer)
+                    .expect("unable to readline from stdin");
+
+                if let Some(raw_args) = shlex::split(&buffer) {
+                    match prompt.try_get_matches_from_mut(raw_args.into_iter()) {
+                        Ok(matches) => match Subcommands::from_arg_matches(&matches) {
+                            Ok(command) => command.execute(&mut store),
+                            Err(err) => eprintln!("{err}"),
+                        },
+                        Err(err) => eprintln!("{err}"),
+                    }
+                }
+            }
         }
     }
 }
