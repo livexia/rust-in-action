@@ -71,6 +71,10 @@ fn main() {
                     .read_line(&mut buffer)
                     .expect("unable to readline from stdin");
 
+                if buffer.trim() == "exit" || buffer.trim() == "quit" {
+                    return;
+                }
+
                 if let Some(raw_args) = shlex::split(&buffer) {
                     match prompt.try_get_matches_from_mut(raw_args.into_iter()) {
                         Ok(matches) => match Subcommands::from_arg_matches(&matches) {
@@ -79,6 +83,8 @@ fn main() {
                         },
                         Err(err) => eprintln!("{err}"),
                     }
+                } else {
+                    eprintln!("Input is not valid shell words")
                 }
             }
         }
