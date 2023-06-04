@@ -26,14 +26,27 @@ enum Subcommands {
     Delete { key: String },
     /// Replaces an old value with a new one
     Update { key: String, value: String },
+    /// Retrieves the value as UTF8 String at key from the store
+    Show { key: String },
 }
 
 impl Subcommands {
     fn execute(&self, store: &mut ActionKV) {
         match self {
-            Subcommands::Get { key } => {
-                println!("Get {key:?}: {:?}", store.get(key.as_bytes()));
-            }
+            Subcommands::Get { key } => match store.get(key.as_bytes()) {
+                Ok(value) => match value {
+                    None => println!("None"),
+                    Some(value) => println!("{value:?}"),
+                },
+                Err(err) => eprintln!("{err:?}"),
+            },
+            Subcommands::Show { key } => match store.get(key.as_bytes()) {
+                Ok(value) => match value {
+                    None => println!("None"),
+                    Some(value) => println!("{}", String::from_utf8_lossy(&value)),
+                },
+                Err(err) => eprintln!("{err:?}"),
+            },
             Subcommands::Insert { key, value } => {
                 println!("Insert {key:?} {value}");
                 store.insert(key.as_bytes(), value.as_bytes()).unwrap();
