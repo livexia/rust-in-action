@@ -34,22 +34,19 @@ impl Subcommands {
     fn execute(&self, store: &mut ActionKV) {
         match self {
             Subcommands::Get { key } => match store.get(key.as_bytes()) {
-                Ok(value) => match value {
-                    None => println!("None"),
-                    Some(value) => println!("{value:?}"),
-                },
+                Ok(value) => println!("{:?}: {:?}", key.as_bytes(), value.unwrap_or(vec![])),
                 Err(err) => eprintln!("{err:?}"),
             },
             Subcommands::Show { key } => match store.get(key.as_bytes()) {
                 Ok(value) => match value {
                     None => println!("None"),
-                    Some(value) => println!("{}", String::from_utf8_lossy(&value)),
+                    Some(value) => println!("{key:?}: {:?}", String::from_utf8_lossy(&value)),
                 },
                 Err(err) => eprintln!("{err}"),
             },
             Subcommands::Insert { key, value } => {
                 match store.insert(key.as_bytes(), value.as_bytes()) {
-                    Ok(_) => println!("Insert {key:?} {value}"),
+                    Ok(_) => println!("Insert {key:?} {value:?}"),
                     Err(err) => eprintln!("{err}"),
                 }
             }
@@ -80,7 +77,7 @@ fn main() {
             let prompt = Command::new("Interactive prompt").no_binary_name(true);
             let mut prompt = Subcommands::augment_subcommands(prompt);
             loop {
-                print!("[{path:?}]> ");
+                print!("[{:?}]> ", path.file_name().expect("unable to open file"));
                 io::stdout().flush().expect("unable to flush stdout");
 
                 let mut buffer = String::new();
