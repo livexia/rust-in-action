@@ -45,19 +45,23 @@ impl Subcommands {
                     None => println!("None"),
                     Some(value) => println!("{}", String::from_utf8_lossy(&value)),
                 },
-                Err(err) => eprintln!("{err:?}"),
+                Err(err) => eprintln!("{err}"),
             },
             Subcommands::Insert { key, value } => {
-                println!("Insert {key:?} {value}");
-                store.insert(key.as_bytes(), value.as_bytes()).unwrap();
+                match store.insert(key.as_bytes(), value.as_bytes()) {
+                    Ok(_) => println!("Insert {key:?} {value}"),
+                    Err(err) => eprintln!("{err}"),
+                }
             }
-            Subcommands::Delete { key } => {
-                println!("Delete {key:?}");
-                store.delete(key.as_bytes()).unwrap();
-            }
+            Subcommands::Delete { key } => match store.delete(key.as_bytes()) {
+                Ok(_) => println!("Delete {key:?}"),
+                Err(err) => eprintln!("{err}"),
+            },
             Subcommands::Update { key, value } => {
-                println!("Update {key:?} {value:?}");
-                store.update(key.as_bytes(), value.as_bytes()).unwrap();
+                match store.update(key.as_bytes(), value.as_bytes()) {
+                    Ok(_) => println!("Update {key:?} {value:?}"),
+                    Err(err) => eprintln!("{err}"),
+                }
             }
         }
     }
