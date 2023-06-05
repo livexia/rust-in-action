@@ -1,4 +1,5 @@
 pub mod checksum;
+pub mod utils;
 
 use std::collections::HashMap;
 use std::fs::{File, OpenOptions};
