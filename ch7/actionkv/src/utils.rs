@@ -38,31 +38,35 @@ enum Subcommands {
 }
 
 impl Subcommands {
-    fn execute(&self, store: &mut ActionKV, index_cache: bool) {
+    fn execute(&self, store: &mut ActionKV, disk_index: bool) {
         let mut modified = true;
-        if index_cache && modified {
-            if let Err(err) = read_cache_from_disk(store) {
+        if disk_index && true {
+            if let Err(err) = read_index_from_disk(store) {
+                eprintln!(
+                    "Reading index cache from disk error, Writing current index cache to the disk"
+                );
+
                 eprintln!("{err}");
             }
         }
         match self {
-            Subcommands::Get { key } | Subcommands::Show { key } => match store.get(key.as_bytes())
-            {
-                Ok(value) => {
-                    modified = false;
-                    match value {
+            Subcommands::Get { key } | Subcommands::Show { key } => {
+                modified = false;
+                match store.get(key.as_bytes()) {
+                    Ok(value) => match value {
                         None => println!("None"),
                         Some(value) => {
+                            println!("{:?}", key.as_bytes());
                             if let Subcommands::Get { .. } = self {
                                 println!("{:?}: {:?}", key.as_bytes(), value)
                             } else {
                                 println!("{key:?}: {:?}", String::from_utf8_lossy(&value))
                             }
                         }
-                    }
+                    },
+                    Err(err) => eprintln!("{err:?}"),
                 }
-                Err(err) => eprintln!("{err:?}"),
-            },
+            }
             Subcommands::Insert { key, value } => {
                 match store.insert(key.as_bytes(), value.as_bytes()) {
                     Ok(_) => println!("Insert {key:?} {value:?}"),
@@ -80,7 +84,7 @@ impl Subcommands {
                 }
             }
         }
-        if index_cache && modified {
+        if disk_index && modified {
             if let Err(err) = write_index_to_disk(store) {
                 eprintln!("{err}");
             }
@@ -88,16 +92,18 @@ impl Subcommands {
     }
 }
 
-fn read_cache_from_disk(store: &mut ActionKV) -> Result<(), std::io::Error> {
+fn read_index_from_disk(store: &mut ActionKV) -> Result<(), std::io::Error> {
+    println!("{:?}", INDEX_KEY.as_bytes());
+    println!("index: {:?}", store.index);
     match store.get(INDEX_KEY.as_bytes()) {
         Ok(value) => {
             if let Some(index_as_bytes) = value {
                 match bincode::deserialize::<Cache>(&index_as_bytes) {
                     Ok(index) => store.index = index,
-                    Err(_) => {
-                        eprintln!("Reading index cache from disk error, Writing current index cache to the disk");
-                    }
+                    Err(err) => return Err(Error::new(ErrorKind::Other, err)),
                 }
+            } else {
+                println!("index is not on the memory")
             }
             Ok(())
         }
@@ -105,7 +111,9 @@ fn read_cache_from_disk(store: &mut ActionKV) -> Result<(), std::io::Error> {
     }
 }
 
+/// Write index to disk, but index does not contain the index
 fn write_index_to_disk(store: &mut ActionKV) -> Result<(), std::io::Error> {
+    println!("index: {:?}", store.index);
     match bincode::serialize(&store.index) {
         Ok(index_as_bytes) => match store.insert(INDEX_KEY.as_bytes(), &index_as_bytes) {
             Ok(_) => Ok(println!("Insert index cache")),
@@ -115,7 +123,7 @@ fn write_index_to_disk(store: &mut ActionKV) -> Result<(), std::io::Error> {
     }
 }
 
-pub fn run(index_cache: bool) {
+pub fn run(disk_index: bool) {
     let args = Cli::parse();
 
     let path = args.fname;
@@ -123,7 +131,7 @@ pub fn run(index_cache: bool) {
     store.load().expect("unable to load data");
 
     match &args.command {
-        Some(command) => command.execute(&mut store, index_cache),
+        Some(command) => command.execute(&mut store, disk_index),
         None => {
             let prompt = Command::new("Interactive prompt").no_binary_name(true);
             let mut prompt = Subcommands::augment_subcommands(prompt);
@@ -143,7 +151,7 @@ pub fn run(index_cache: bool) {
                 if let Some(raw_args) = shlex::split(&buffer) {
                     match prompt.try_get_matches_from_mut(raw_args.into_iter()) {
                         Ok(matches) => match Subcommands::from_arg_matches(&matches) {
-                            Ok(command) => command.execute(&mut store, index_cache),
+                            Ok(command) => command.execute(&mut store, disk_index),
                             Err(err) => eprintln!("{err}"),
                         },
                         Err(err) => eprintln!("{err}"),
