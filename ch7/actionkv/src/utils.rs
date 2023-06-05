@@ -40,7 +40,7 @@ enum Subcommands {
 impl Subcommands {
     fn execute(&self, store: &mut ActionKV, disk_index: bool) {
         let mut modified = true;
-        if disk_index && true {
+        if disk_index {
             if let Err(err) = read_index_from_disk(store) {
                 eprintln!(
                     "Reading index cache from disk error, Writing current index cache to the disk"
@@ -56,7 +56,6 @@ impl Subcommands {
                     Ok(value) => match value {
                         None => println!("None"),
                         Some(value) => {
-                            println!("{:?}", key.as_bytes());
                             if let Subcommands::Get { .. } = self {
                                 println!("{:?}: {:?}", key.as_bytes(), value)
                             } else {
@@ -93,19 +92,19 @@ impl Subcommands {
 }
 
 fn read_index_from_disk(store: &mut ActionKV) -> Result<(), std::io::Error> {
-    println!("{:?}", INDEX_KEY.as_bytes());
-    println!("index: {:?}", store.index);
     match store.get(INDEX_KEY.as_bytes()) {
         Ok(value) => {
             if let Some(index_as_bytes) = value {
                 match bincode::deserialize::<Cache>(&index_as_bytes) {
-                    Ok(index) => store.index = index,
-                    Err(err) => return Err(Error::new(ErrorKind::Other, err)),
+                    Ok(index) => {
+                        store.index = index;
+                        store.insert(INDEX_KEY.as_bytes(), &index_as_bytes)
+                    }
+                    Err(err) => Err(Error::new(ErrorKind::Other, err)),
                 }
             } else {
-                println!("index is not on the memory")
+                Err(Error::new(ErrorKind::Other, "index is not on the memory"))
             }
-            Ok(())
         }
         Err(err) => Err(err),
     }
@@ -113,12 +112,17 @@ fn read_index_from_disk(store: &mut ActionKV) -> Result<(), std::io::Error> {
 
 /// Write index to disk, but index does not contain the index
 fn write_index_to_disk(store: &mut ActionKV) -> Result<(), std::io::Error> {
-    println!("index: {:?}", store.index);
+    // remove index's index from index first to avoid recursion
+    store.index.remove(INDEX_KEY.as_bytes());
     match bincode::serialize(&store.index) {
-        Ok(index_as_bytes) => match store.insert(INDEX_KEY.as_bytes(), &index_as_bytes) {
-            Ok(_) => Ok(println!("Insert index cache")),
-            Err(err) => Err(err),
-        },
+        Ok(index_as_bytes) => {
+            // clear current index first
+            store.index.clear();
+            match store.insert(INDEX_KEY.as_bytes(), &index_as_bytes) {
+                Ok(_) => Ok(eprintln!("Insert index cache")),
+                Err(err) => Err(err),
+            }
+        }
         Err(err) => Err(Error::new(ErrorKind::Other, err)),
     }
 }
