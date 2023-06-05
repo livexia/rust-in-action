@@ -42,10 +42,6 @@ impl Subcommands {
         let mut modified = true;
         if disk_index {
             if let Err(err) = read_index_from_disk(store) {
-                eprintln!(
-                    "Reading index cache from disk error, Writing current index cache to the disk"
-                );
-
                 eprintln!("{err}");
             }
         }
@@ -86,6 +82,8 @@ impl Subcommands {
         if disk_index && modified {
             if let Err(err) = write_index_to_disk(store) {
                 eprintln!("{err}");
+            } else {
+                eprintln!("Write index to disk");
             }
         }
     }
@@ -98,6 +96,10 @@ fn read_index_from_disk(store: &mut ActionKV) -> Result<(), std::io::Error> {
                 match bincode::deserialize::<Cache>(&index_as_bytes) {
                     Ok(index) => {
                         store.index = index;
+                        // after first time read from disk,
+                        // next time need to insert INDEX_KEY back to the index,
+                        // because the index from disk does not contain the INDEX_KEY
+                        // could append the index from disk to the index with more time complexity
                         store.insert(INDEX_KEY.as_bytes(), &index_as_bytes)
                     }
                     Err(err) => Err(Error::new(ErrorKind::Other, err)),
@@ -111,6 +113,8 @@ fn read_index_from_disk(store: &mut ActionKV) -> Result<(), std::io::Error> {
 }
 
 /// Write index to disk, but index does not contain the index
+/// if using akv_mem to add key-value, but will not update the index from the disk
+/// so next time using akv_disk will not get the updated value.
 fn write_index_to_disk(store: &mut ActionKV) -> Result<(), std::io::Error> {
     // remove index's index from index first to avoid recursion
     store.index.remove(INDEX_KEY.as_bytes());
@@ -119,7 +123,7 @@ fn write_index_to_disk(store: &mut ActionKV) -> Result<(), std::io::Error> {
             // clear current index first
             store.index.clear();
             match store.insert(INDEX_KEY.as_bytes(), &index_as_bytes) {
-                Ok(_) => Ok(eprintln!("Insert index cache")),
+                Ok(_) => Ok(()),
                 Err(err) => Err(err),
             }
         }
@@ -133,6 +137,16 @@ pub fn run(disk_index: bool) {
     let path = args.fname;
     let mut store = ActionKV::open(&path).expect("unable to open file");
     store.load().expect("unable to load data");
+
+    // when using akv_disk first thing to do is update the disk index
+    // because some change may not write to the disk
+    if disk_index {
+        if let Err(err) = write_index_to_disk(&mut store) {
+            eprintln!("{err}");
+        } else {
+            eprintln!("Updating newest index to the disk")
+        }
+    }
 
     match &args.command {
         Some(command) => command.execute(&mut store, disk_index),
