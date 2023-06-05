@@ -3,7 +3,8 @@ pub mod utils;
 
 use std::collections::HashMap;
 use std::fs::{File, OpenOptions};
-use std::io::{self, BufReader, BufWriter, Read, Result, Seek, SeekFrom, Write};
+use std::io::{self, BufReader, BufWriter, Read, Seek, SeekFrom, Write};
+use std::io::{Error, ErrorKind, Result};
 use std::path::Path;
 
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
@@ -95,7 +96,15 @@ impl ActionKV {
     }
 
     pub fn delete(&mut self, key: &ByteStr) -> Result<()> {
-        self.insert(key, b"")
+        self.insert(key, b"")?;
+        if self.index.remove(key).is_none() {
+            Err(Error::new(
+                ErrorKind::Other,
+                "{key:?} does not exist in index",
+            ))
+        } else {
+            Ok(())
+        }
     }
 
     pub fn update(&mut self, key: &ByteStr, value: &ByteStr) -> Result<()> {

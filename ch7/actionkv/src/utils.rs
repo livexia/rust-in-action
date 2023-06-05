@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::io::{self, Write};
+use std::io::{Error, ErrorKind};
 use std::path::PathBuf;
 
 use crate::ActionKV;
@@ -8,7 +9,7 @@ use clap::{Command, FromArgMatches, Parser, Subcommand};
 
 type Cache = HashMap<ByteString, u64>;
 
-const INDEX_KEY: &'static str = "+index+";
+const INDEX_KEY: &str = "+index+";
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -37,18 +38,30 @@ enum Subcommands {
 }
 
 impl Subcommands {
-    fn execute(&self, store: &mut ActionKV, index_cache: &mut Option<Cache>) {
+    fn execute(&self, store: &mut ActionKV, index_cache: bool) {
+        let mut modified = true;
+        if index_cache && modified {
+            if let Err(err) = read_cache_from_disk(store) {
+                eprintln!("{err}");
+            }
+        }
         match self {
-            Subcommands::Get { key } => match store.get(key.as_bytes()) {
-                Ok(value) => println!("{:?}: {:?}", key.as_bytes(), value.unwrap_or(vec![])),
+            Subcommands::Get { key } | Subcommands::Show { key } => match store.get(key.as_bytes())
+            {
+                Ok(value) => {
+                    modified = false;
+                    match value {
+                        None => println!("None"),
+                        Some(value) => {
+                            if let Subcommands::Get { .. } = self {
+                                println!("{:?}: {:?}", key.as_bytes(), value)
+                            } else {
+                                println!("{key:?}: {:?}", String::from_utf8_lossy(&value))
+                            }
+                        }
+                    }
+                }
                 Err(err) => eprintln!("{err:?}"),
-            },
-            Subcommands::Show { key } => match store.get(key.as_bytes()) {
-                Ok(value) => match value {
-                    None => println!("None"),
-                    Some(value) => println!("{key:?}: {:?}", String::from_utf8_lossy(&value)),
-                },
-                Err(err) => eprintln!("{err}"),
             },
             Subcommands::Insert { key, value } => {
                 match store.insert(key.as_bytes(), value.as_bytes()) {
@@ -67,15 +80,20 @@ impl Subcommands {
                 }
             }
         }
+        if index_cache && modified {
+            if let Err(err) = write_index_to_disk(store) {
+                eprintln!("{err}");
+            }
+        }
     }
 }
 
-fn get_cache(cache: &mut Cache, store: &ActionKV) -> Result<(), std::io::Error> {
+fn read_cache_from_disk(store: &mut ActionKV) -> Result<(), std::io::Error> {
     match store.get(INDEX_KEY.as_bytes()) {
         Ok(value) => {
             if let Some(index_as_bytes) = value {
                 match bincode::deserialize::<Cache>(&index_as_bytes) {
-                    Ok(index) => *cache = index,
+                    Ok(index) => store.index = index,
                     Err(_) => {
                         eprintln!("Reading index cache from disk error, Writing current index cache to the disk");
                     }
@@ -87,19 +105,17 @@ fn get_cache(cache: &mut Cache, store: &ActionKV) -> Result<(), std::io::Error> 
     }
 }
 
-fn get_with_cache(cache: &mut Cache, key: &ByteString) -> Option<u64> {
-    cache.get(key).copied()
+fn write_index_to_disk(store: &mut ActionKV) -> Result<(), std::io::Error> {
+    match bincode::serialize(&store.index) {
+        Ok(index_as_bytes) => match store.insert(INDEX_KEY.as_bytes(), &index_as_bytes) {
+            Ok(_) => Ok(println!("Insert index cache")),
+            Err(err) => Err(err),
+        },
+        Err(err) => Err(Error::new(ErrorKind::Other, err)),
+    }
 }
 
-fn update_cache(cache: &mut Cache, key: ByteString, position: u64) {
-    cache.insert(key, position);
-}
-
-fn delete_from_cache(cache: &mut Cache, key: &ByteString) {
-    cache.remove(key);
-}
-
-pub fn run(index_cache: &mut Option<Cache>) {
+pub fn run(index_cache: bool) {
     let args = Cli::parse();
 
     let path = args.fname;
