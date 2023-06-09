@@ -1,23 +1,42 @@
 use std::error::Error;
+use std::fmt::Display;
 use std::net::{SocketAddr, UdpSocket};
 use std::time::Duration;
 
 use clap::{arg, Command};
 use trust_dns_client::client::{Client, SyncClient};
+use trust_dns_client::error::ClientError;
 use trust_dns_client::op::{DnsResponse, Message, MessageType, OpCode, Query};
+use trust_dns_client::proto::error::ProtoError;
 use trust_dns_client::rr::{DNSClass, Name, RData, Record, RecordType};
 use trust_dns_client::serialize::binary::{BinEncodable, BinEncoder};
 use trust_dns_client::udp::UdpClientConnection;
+
+#[derive(Debug)]
+enum ResolveError {
+    DNSClientError(ClientError),
+    ParseError(ProtoError),
+}
+
+impl Display for ResolveError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl Error for ResolveError {}
 
 // see: https://docs.rs/trust-dns-client/latest/trust_dns_client/
 fn trust_dns_client_udp(
     domain_name: &str,
     dns_server: SocketAddr,
-) -> Result<Vec<String>, Box<dyn Error>> {
-    let conn = UdpClientConnection::new(dns_server)?;
+) -> Result<Vec<String>, ResolveError> {
+    let conn = UdpClientConnection::new(dns_server).map_err(ResolveError::DNSClientError)?;
     let client = SyncClient::new(conn);
-    let domain_name: Name = domain_name.parse()?;
-    let response: DnsResponse = client.query(&domain_name, DNSClass::IN, RecordType::A)?;
+    let domain_name: Name = domain_name.parse().map_err(ResolveError::ParseError)?;
+    let response: DnsResponse = client
+        .query(&domain_name, DNSClass::IN, RecordType::A)
+        .map_err(ResolveError::DNSClientError)?;
 
     let answers: &[Record] = response.answers();
 
