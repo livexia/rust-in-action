@@ -1,6 +1,6 @@
 use std::error::Error;
 use std::fmt::Display;
-use std::net::{SocketAddr, UdpSocket};
+use std::net::{AddrParseError, SocketAddr, UdpSocket};
 use std::time::Duration;
 
 use clap::{arg, Command};
@@ -14,29 +14,60 @@ use trust_dns_client::udp::UdpClientConnection;
 
 #[derive(Debug)]
 enum ResolveError {
-    DNSClientError(ClientError),
-    ParseError(ProtoError),
+    DNSClient(ClientError),
+    NameParse(ProtoError),
+    AddrParse(AddrParseError),
+    IO(std::io::Error),
+    Clap(clap::Error),
 }
 
 impl Display for ResolveError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
+        write!(f, "{self:?}")
     }
 }
 
 impl Error for ResolveError {}
+
+impl From<ClientError> for ResolveError {
+    fn from(value: ClientError) -> Self {
+        Self::DNSClient(value)
+    }
+}
+
+impl From<ProtoError> for ResolveError {
+    fn from(value: ProtoError) -> Self {
+        Self::NameParse(value)
+    }
+}
+
+impl From<AddrParseError> for ResolveError {
+    fn from(value: AddrParseError) -> Self {
+        Self::AddrParse(value)
+    }
+}
+
+impl From<std::io::Error> for ResolveError {
+    fn from(value: std::io::Error) -> Self {
+        Self::IO(value)
+    }
+}
+
+impl From<clap::Error> for ResolveError {
+    fn from(value: clap::Error) -> Self {
+        Self::Clap(value)
+    }
+}
 
 // see: https://docs.rs/trust-dns-client/latest/trust_dns_client/
 fn trust_dns_client_udp(
     domain_name: &str,
     dns_server: SocketAddr,
 ) -> Result<Vec<String>, ResolveError> {
-    let conn = UdpClientConnection::new(dns_server).map_err(ResolveError::DNSClientError)?;
+    let conn = UdpClientConnection::new(dns_server)?;
     let client = SyncClient::new(conn);
-    let domain_name: Name = domain_name.parse().map_err(ResolveError::ParseError)?;
-    let response: DnsResponse = client
-        .query(&domain_name, DNSClass::IN, RecordType::A)
-        .map_err(ResolveError::DNSClientError)?;
+    let domain_name: Name = domain_name.parse()?;
+    let response: DnsResponse = client.query(&domain_name, DNSClass::IN, RecordType::A)?;
 
     let answers: &[Record] = response.answers();
 
@@ -53,7 +84,7 @@ fn trust_dns_client_udp(
 fn trust_dns_client_msg_udp(
     domain_name: &str,
     dns_server: SocketAddr,
-) -> Result<Vec<String>, Box<dyn Error>> {
+) -> Result<Vec<String>, ResolveError> {
     let domain_name: Name = domain_name.parse()?;
     let mut request_as_bytes: Vec<u8> = Vec::with_capacity(512);
     let mut response_as_bytes: Vec<u8> = vec![0; 512];
@@ -91,7 +122,7 @@ fn trust_dns_client_msg_udp(
     Ok(records)
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> Result<(), ResolveError> {
     let matches = Command::new("resolve")
         .version("0.1")
         .about("A simple to use DNS resolver")
@@ -103,25 +134,16 @@ fn main() -> Result<(), Box<dyn Error>> {
     let dns_server = matches.get_one::<String>("dns-server");
     match (domain_name, dns_server) {
         (Some(domain_name), Some(dns_server)) => {
-            match format!("{dns_server}:53").parse::<SocketAddr>() {
-                Ok(dns_server) => {
-                    let r1 = trust_dns_client_udp(domain_name, dns_server)?;
-                    let r2 = trust_dns_client_msg_udp(domain_name, dns_server)?;
-                    assert_eq!(r1, r2);
-                    for ip in r1 {
-                        println!("{ip}");
-                    }
-                    Ok(())
-                }
-                Err(err) => {
-                    eprintln!("Unable to parse dns-server");
-                    Err(Box::new(err))
-                }
+            let dns_server = format!("{dns_server}:53").parse()?;
+            let r1 = trust_dns_client_udp(domain_name, dns_server)?;
+            let r2 = trust_dns_client_msg_udp(domain_name, dns_server)?;
+            assert_eq!(r1, r2);
+            for ip in r1 {
+                println!("{ip}");
             }
+            Ok(())
         }
         // unreachable!
-        _ => Err(Box::new(clap::Error::new(
-            clap::error::ErrorKind::DisplayHelp,
-        ))),
+        _ => Err(clap::Error::new(clap::error::ErrorKind::DisplayHelp).into()),
     }
 }
