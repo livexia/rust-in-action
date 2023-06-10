@@ -7,3 +7,7 @@ edition = "2021"
 
 [dependencies]
 tun = "0.5.5"
+
+[[bin]]
+name = "tun_test"
+path = "src/tun_test.rs"
