@@ -1,0 +1,13 @@
+[package]
+name = "mget"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+clap = "4.3.3"
+rand = "0.8.5"
+smoltcp = { version = "0.9.1", features = ["proto-ipv4", "proto-igmp", "verbose", "log", "phy-tuntap_interface"] }
+trust-dns-client = "0.22.0"
+url = "2.4.0"
