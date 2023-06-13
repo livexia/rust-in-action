@@ -7,7 +7,10 @@ edition = "2021"
 
 [dependencies]
 clap = "4.3.3"
+color-eyre = "0.6.2"
 rand = "0.8.5"
 smoltcp = { version = "0.9.1", features = ["proto-ipv4", "proto-igmp", "verbose", "log", "phy-tuntap_interface"] }
+tracing = "0.1.37"
+tracing-subscriber = "0.3.17"
 trust-dns-client = "0.22.0"
 url = "2.4.0"

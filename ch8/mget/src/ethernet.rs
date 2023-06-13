@@ -26,6 +26,12 @@ impl Debug for MacAddress {
     }
 }
 
+impl Default for MacAddress {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MacAddress {
     pub fn new() -> Self {
         let mut octet: [u8; 6] = [0; 6];

@@ -114,7 +114,7 @@ fn trust_dns_client_msg_udp(
 
     for answer in answers {
         if let Some(RData::A(ip)) = answer.data() {
-            return Ok(Some(IpAddr::V4(ip.clone())));
+            return Ok(Some(IpAddr::V4(*ip)));
         }
     }
 
