@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::fmt::{Debug, Display};
 
 use rand::RngCore;
 
@@ -10,6 +10,17 @@ impl Display for MacAddress {
         write!(
             f,
             "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
+            octet[0], octet[1], octet[2], octet[3], octet[4], octet[5]
+        )
+    }
+}
+
+impl Debug for MacAddress {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let octet = &self.0;
+        write!(
+            f,
+            "MacAddress: {:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
             octet[0], octet[1], octet[2], octet[3], octet[4], octet[5]
         )
     }

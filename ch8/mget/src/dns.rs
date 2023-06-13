@@ -1,6 +1,6 @@
 use std::error::Error;
 use std::fmt::Display;
-use std::net::{AddrParseError, SocketAddr, UdpSocket};
+use std::net::{AddrParseError, IpAddr, SocketAddr, UdpSocket};
 use std::time::Duration;
 
 use trust_dns_client::client::{Client, SyncClient};
@@ -59,7 +59,8 @@ impl From<clap::Error> for ResolveError {
 }
 
 // see: https://docs.rs/trust-dns-client/latest/trust_dns_client/
-pub fn trust_dns_client_udp(
+#[allow(dead_code)]
+fn trust_dns_client_udp(
     domain_name: &str,
     dns_server: SocketAddr,
 ) -> Result<Vec<String>, ResolveError> {
@@ -80,10 +81,10 @@ pub fn trust_dns_client_udp(
     Ok(records)
 }
 
-pub fn trust_dns_client_msg_udp(
-    domain_name: &str,
+fn trust_dns_client_msg_udp(
     dns_server: SocketAddr,
-) -> Result<Vec<String>, ResolveError> {
+    domain_name: &str,
+) -> Result<Option<IpAddr>, ResolveError> {
     let domain_name: Name = domain_name.parse()?;
     let mut request_as_bytes: Vec<u8> = Vec::with_capacity(512);
     let mut response_as_bytes: Vec<u8> = vec![0; 512];
@@ -111,12 +112,16 @@ pub fn trust_dns_client_msg_udp(
 
     let answers: &[Record] = dns_message.answers();
 
-    let mut records = vec![];
     for answer in answers {
-        if let Some(RData::A(ref ip)) = answer.data() {
-            records.push(ip.to_string());
+        if let Some(RData::A(ip)) = answer.data() {
+            return Ok(Some(IpAddr::V4(ip.clone())));
         }
     }
 
-    Ok(records)
+    Ok(None)
+}
+
+pub fn resolver(dns_server_addr: &str, domain_name: &str) -> Result<Option<IpAddr>, ResolveError> {
+    let dns_server = format!("{dns_server_addr}:53").parse()?;
+    trust_dns_client_msg_udp(dns_server, domain_name)
 }
