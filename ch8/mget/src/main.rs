@@ -47,6 +47,7 @@ fn main() -> color_eyre::Result<()> {
     info!("dns-server: {dns_server}");
 
     let url = Url::parse(url_str).expect("error: unable to parse <url> as a URL");
+    dbg!(&url);
     let domain_name = url.host_str().expect("domain name required");
     let port = url.port().unwrap_or(80);
     let remote_addr = dns::resolver(dns_server, domain_name).unwrap().unwrap();
@@ -60,13 +61,13 @@ fn main() -> color_eyre::Result<()> {
 
     let mac = ethernet::MacAddress::new();
 
-    dbg!(&url);
     dbg!(remote_addr);
     dbg!(tun_iface_name);
     dbg!(mac);
 
+    // see: https://developer.mozilla.org/en-US/docs/Web/HTTP/Overview
     let req = [
-        "GET / HTTP/1.1",
+        &format!("GET {} HTTP/1.1", url.path()),
         &format!("host: {}", url.host_str().unwrap()),
         "user-agent: cool-frog/1.0",
         "connection: close",
@@ -74,6 +75,7 @@ fn main() -> color_eyre::Result<()> {
         "",
     ]
     .join("\r\n");
+
     let mut stream = TcpStream::connect(remote_addr).expect("unable to connect to remote addr");
     stream
         .write_all(req.as_bytes())
