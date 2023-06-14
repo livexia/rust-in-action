@@ -2,6 +2,7 @@
 
 mod dns;
 pub mod ethernet;
+mod http11;
 
 use std::{
     io::{Read, Write},
@@ -80,7 +81,7 @@ fn main() -> color_eyre::Result<()> {
     let mut accum: Vec<u8> = Default::default();
     let mut rd_buf = [0u8; 1024];
 
-    loop {
+    let res = loop {
         let n = stream
             .read(&mut rd_buf)
             .expect("unable to read from stream");
@@ -91,7 +92,16 @@ fn main() -> color_eyre::Result<()> {
             ));
         }
         accum.extend_from_slice(&rd_buf[..n]);
-    }
 
-    // info!("Got HTTP/1.1 response: {:#?}", accum);
+        match http11::response(&accum) {
+            Err(e) => {}
+            Ok((remain, res)) => {
+                // see returning from loops: https://doc.rust-lang.org/rust-by-example/flow_control/loop/return.html
+                break res;
+            }
+        }
+    };
+
+    info!("Got HTTP/1.1 response: {:#?}", accum);
+    Ok(())
 }
