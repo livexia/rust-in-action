@@ -12,6 +12,7 @@ use std::{
 
 use clap::{arg, Command};
 use color_eyre::eyre::eyre;
+use nom::Offset;
 use tracing::info;
 use tracing_subscriber::{filter::Targets, layer::SubscriberExt, util::SubscriberInitExt};
 // smoltcp::phy::TunTapInterface does not supported on mac
@@ -81,7 +82,7 @@ fn main() -> color_eyre::Result<()> {
     let mut accum: Vec<u8> = Default::default();
     let mut rd_buf = [0u8; 1024];
 
-    let res = loop {
+    let (body_offset, res) = loop {
         let n = stream
             .read(&mut rd_buf)
             .expect("unable to read from stream");
@@ -94,14 +95,46 @@ fn main() -> color_eyre::Result<()> {
         accum.extend_from_slice(&rd_buf[..n]);
 
         match http11::response(&accum) {
-            Err(e) => {}
+            Err(e) => {
+                if e.is_incomplete() {
+                    info!("Need to read more, continuing");
+                    continue;
+                } else {
+                    return Err(eyre!("parse error: {e}"));
+                }
+            }
             Ok((remain, res)) => {
                 // see returning from loops: https://doc.rust-lang.org/rust-by-example/flow_control/loop/return.html
-                break res;
+                let body_offset = accum.offset(remain);
+                break (body_offset, res);
             }
         }
     };
 
-    info!("Got HTTP/1.1 response: {:#?}", accum);
+    info!("Got HTTP/1.1 response: {:#?}", res);
+    let mut body_accum = accum[body_offset..].to_vec();
+
+    let content_length = res
+        .headers
+        .iter()
+        .find(|(k, _)| k.eq_ignore_ascii_case("content-length"))
+        .map(|(_, v)| v.parse::<usize>().unwrap())
+        .unwrap_or_default();
+
+    while body_accum.len() < content_length {
+        let n = stream.read(&mut rd_buf[..])?;
+        info!("Read {n} bytes");
+        if n == 0 {
+            return Err(eyre!(
+                "unexpected EOF (server closed connection during headers)"
+            ));
+        }
+
+        body_accum.extend_from_slice(&rd_buf[..n]);
+    }
+
+    info!("===== Response body =====");
+    info!("{}", String::from_utf8_lossy(&body_accum));
+
     Ok(())
 }
