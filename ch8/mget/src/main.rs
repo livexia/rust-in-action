@@ -3,16 +3,21 @@
 mod dns;
 pub mod ethernet;
 
-use std::str::FromStr;
+use std::{
+    io::{Read, Write},
+    net::{SocketAddr, TcpStream},
+    str::FromStr,
+};
 
 use clap::{arg, Command};
+use color_eyre::eyre::eyre;
 use tracing::info;
 use tracing_subscriber::{filter::Targets, layer::SubscriberExt, util::SubscriberInitExt};
 // smoltcp::phy::TunTapInterface does not supported on mac
 // use smoltcp::phy::TunTapInterface;
 use url::Url;
 
-fn main() {
+fn main() -> color_eyre::Result<()> {
     color_eyre::install().unwrap();
 
     let filter_layer =
@@ -41,17 +46,52 @@ fn main() {
 
     let url = Url::parse(url_str).expect("error: unable to parse <url> as a URL");
     let domain_name = url.host_str().expect("domain name required");
+    let port = url.port().unwrap_or(80);
+    let remote_addr = dns::resolver(dns_server, domain_name).unwrap().unwrap();
+    let remote_addr: SocketAddr = format!("{remote_addr}:{port}")
+        .parse()
+        .expect("unable to parse SockAddr");
 
     if url.scheme() != "http" {
         unimplemented!("error: only HTTP protocol supported")
     }
 
-    let remote_addr = dns::resolver(dns_server, domain_name).unwrap().unwrap();
-
     let mac = ethernet::MacAddress::new();
 
-    dbg!(url);
+    dbg!(&url);
     dbg!(remote_addr);
     dbg!(tun_iface_name);
     dbg!(mac);
+
+    let req = [
+        "GET / HTTP/1.1",
+        &format!("host: {}", url.host_str().unwrap()),
+        "user-agent: cool-frog/1.0",
+        "connection: close",
+        "",
+        "",
+    ]
+    .join("\r\n");
+    let mut stream = TcpStream::connect(remote_addr).expect("unable to connect to remote addr");
+    stream
+        .write_all(req.as_bytes())
+        .expect("unable to send request");
+
+    let mut accum: Vec<u8> = Default::default();
+    let mut rd_buf = [0u8; 1024];
+
+    loop {
+        let n = stream
+            .read(&mut rd_buf)
+            .expect("unable to read from stream");
+        info!("Read {n} bytes");
+        if n == 0 {
+            return Err(eyre!(
+                "unexpected EOF (server closed connection during headers)"
+            ));
+        }
+        accum.extend_from_slice(&rd_buf[..n]);
+    }
+
+    // info!("Got HTTP/1.1 response: {:#?}", accum);
 }
