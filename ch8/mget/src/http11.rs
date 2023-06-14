@@ -2,7 +2,7 @@ use nom::{
     bytes::streaming::{tag, take_until1, take_while1},
     character::is_digit,
     combinator::{map_res, opt},
-    sequence::terminated,
+    sequence::{preceded, terminated},
     IResult,
 };
 
@@ -36,7 +36,7 @@ fn ws(i: &[u8]) -> IResult<&[u8], ()> {
 fn header(i: &[u8]) -> IResult<&[u8], (&str, &str)> {
     let (i, name) = map_res(terminated(take_until1(":"), tag(":")), std::str::from_utf8)(i)?;
     let (i, value) = map_res(
-        terminated(take_until1(CRLF), tag(CRLF)),
+        preceded(ws, terminated(take_until1(CRLF), tag(CRLF))),
         std::str::from_utf8,
     )(i)?;
 
