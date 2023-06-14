@@ -6,7 +6,7 @@ mod http11;
 
 use std::{
     io::{Read, Write},
-    net::{SocketAddr, TcpStream},
+    net::{IpAddr, SocketAddr, TcpStream},
     str::FromStr,
 };
 
@@ -48,9 +48,19 @@ fn main() -> color_eyre::Result<()> {
 
     let url = Url::parse(url_str).expect("error: unable to parse <url> as a URL");
     dbg!(&url);
-    let domain_name = url.host_str().expect("domain name required");
+
     let port = url.port().unwrap_or(80);
-    let remote_addr = dns::resolver(dns_server, domain_name).unwrap().unwrap();
+
+    let remote_addr = match url.host() {
+        Some(host) => match host {
+            url::Host::Domain(domain_name) => {
+                dns::resolver(dns_server, domain_name).unwrap().unwrap()
+            }
+            url::Host::Ipv4(addr) => IpAddr::V4(addr),
+            url::Host::Ipv6(_) => unimplemented!("ipv6 not supported"),
+        },
+        None => return Err(eyre!("domain name required")),
+    };
     let remote_addr: SocketAddr = format!("{remote_addr}:{port}")
         .parse()
         .expect("unable to parse SockAddr");
