@@ -76,9 +76,14 @@ fn main() -> color_eyre::Result<()> {
     dbg!(tun_iface_name);
     dbg!(mac);
 
+    let query = match url.query() {
+        Some(q) => format!("?{q}"),
+        None => "".to_string(),
+    };
+
     // see: https://developer.mozilla.org/en-US/docs/Web/HTTP/Overview
     let req = [
-        &format!("GET {} HTTP/1.1", url.path()),
+        &format!("GET {}{} HTTP/1.1", url.path(), query),
         &format!("host: {}", url.host_str().unwrap()),
         "user-agent: cool-frog/1.0",
         "connection: close",
