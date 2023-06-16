@@ -13,12 +13,13 @@ use std::{
 use clap::{arg, Command};
 use color_eyre::eyre::eyre;
 use nom::Offset;
-use tracing::info;
+use tracing::{info, instrument};
 use tracing_subscriber::{filter::Targets, layer::SubscriberExt, util::SubscriberInitExt};
 // smoltcp::phy::TunTapInterface does not supported on mac
 // use smoltcp::phy::TunTapInterface;
 use url::Url;
 
+#[instrument]
 fn main() -> color_eyre::Result<()> {
     color_eyre::install().unwrap();
 
