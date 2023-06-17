@@ -1,6 +1,5 @@
 use chrono::Local;
 use clap::{Arg, Command};
-use time::OffsetDateTime;
 
 struct Clock;
 
@@ -50,9 +49,4 @@ fn main() {
             println!("{now}");
         }
     }
-    let chrono_local_now = Local::now();
-    let time_local_now =
-        OffsetDateTime::now_local().expect("time crate unable read time from local");
-    eprintln!("chrono crate local now: {}", chrono_local_now);
-    eprintln!("time crate local now: {:?}", time_local_now);
 }
