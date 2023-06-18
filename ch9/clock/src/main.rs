@@ -1,7 +1,7 @@
 use std::{error::Error, fmt::Display};
 
 use chrono::Local;
-use clap::{Arg, Command};
+use clap::{Arg, ArgAction, Command};
 
 #[derive(Debug)]
 enum ClockError {
@@ -50,7 +50,7 @@ impl Clock {
 
     // see: https://linux.die.net/man/2/settimeofday
     #[cfg(unix)]
-    fn set(format: &str, datetime: &str) -> Result<(), ClockError> {
+    fn set(format: &str, datetime: &str, dry_run: bool) -> Result<(), ClockError> {
         use std::mem::zeroed;
 
         use chrono::DateTime;
@@ -67,9 +67,12 @@ impl Clock {
             _ => unreachable!(),
         }?;
 
-        dbg!(&dt);
-        dbg!(dt.timezone());
-        dbg!(dt.with_timezone(&Local));
+        // convert input datetime's timezone with local timezone to avoid confusing
+        let dt = dt.with_timezone(&Local);
+
+        if dry_run {
+            return Ok(());
+        }
 
         // UNSAFE: init the timeval struct with zeroed
         let mut tv: timeval = unsafe { zeroed() };
@@ -90,7 +93,7 @@ impl Clock {
     }
 
     #[cfg(windows)]
-    fn set(_format: &str, _datetime: &str) -> ! {
+    fn set(_format: &str, _datetime: &str, dry_run: bool) -> ! {
         unimplemented!("set datetime on windows is ye to be implemented")
     }
 }
@@ -106,11 +109,20 @@ fn main() {
                 .value_parser(["timestamp", "rfc2822", "rfc3339"])
                 .default_value("rfc3339"),
         )
-        .subcommand(Command::new("get").about("Set local time with corresponding format"))
+        .subcommand(
+            Command::new("get")
+                .about("Set local time with corresponding format and local timezone"),
+        )
         .subcommand(
             Command::new("set")
                 .about("Get local time with corresponding format")
-                .arg(Arg::new("datetime").required(true)),
+                .arg(Arg::new("datetime").required(true))
+                .arg(
+                    Arg::new("dry run")
+                        .long("dry-run")
+                        .short('d')
+                        .action(ArgAction::SetTrue),
+                ),
         )
         .get_matches();
 
@@ -119,7 +131,9 @@ fn main() {
     match matches.subcommand() {
         Some(("set", set_matches)) => {
             let datetime = set_matches.get_one::<String>("datetime").unwrap();
-            Clock::set(format, datetime).expect("unable to set the clock");
+            let dry_run = set_matches.get_flag("dry run");
+            dbg!("dry run: {}", dry_run);
+            Clock::set(format, datetime, dry_run).expect("unable to set the clock");
         }
         Some(_) | None => {
             let now = Clock::get(format);
