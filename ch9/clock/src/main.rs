@@ -11,6 +11,7 @@ enum ClockError {
     ChronoParse(chrono::ParseError),
     TimestampParse(std::num::ParseIntError),
     Libc(std::io::Error),
+    Custom(String),
 }
 
 impl Display for ClockError {
@@ -45,7 +46,7 @@ impl Clock {
     #[instrument]
     fn get(format: &str) -> String {
         match format {
-            "timestamp" => Local::now().timestamp().to_string(),
+            "timestamp" => Local::now().timestamp_millis().to_string(),
             "rfc2822" => Local::now().to_rfc2822(),
             "rfc3339" => Local::now().to_rfc3339(),
             _ => unreachable!(),
@@ -58,22 +59,28 @@ impl Clock {
     fn set(format: &str, datetime: &str, dry_run: bool) -> Result<(), Report> {
         use std::mem::zeroed;
 
-        use chrono::DateTime;
+        use chrono::{DateTime, LocalResult, TimeZone};
         use libc::{settimeofday, suseconds_t, time_t, timeval, timezone};
 
         let dt = match format {
             "timestamp" => {
-                let unix_ts: i64 = datetime.parse()?;
-                dbg!(unix_ts);
-                todo!()
+                let millis: i64 = datetime.parse()?;
+                match Local.timestamp_millis_opt(millis) {
+                    LocalResult::Single(dt) => dt.with_timezone(&Local),
+                    _ => {
+                        return Err(Report::new(ClockError::Custom(
+                            "Incorrect timestamp_millis".to_string(),
+                        )))
+                    }
+                }
             }
-            "rfc2822" => DateTime::parse_from_rfc2822(datetime),
-            "rfc3339" => DateTime::parse_from_rfc3339(datetime),
+            "rfc2822" => DateTime::parse_from_rfc2822(datetime)?.with_timezone(&Local),
+            "rfc3339" => DateTime::parse_from_rfc3339(datetime)?.with_timezone(&Local),
             _ => unreachable!(),
-        }?;
+        };
 
         // convert input datetime's timezone with local timezone to avoid confusing
-        let dt = dt.with_timezone(&Local);
+        // let dt = dt.with_timezone(&Local);
         info!("set time with: {:?}", dt);
 
         if dry_run {
@@ -125,6 +132,12 @@ fn main() -> Result<(), Report> {
                 .long("format")
                 .short('f')
                 .value_parser(["timestamp", "rfc2822", "rfc3339"])
+                .help("input/output datetime format")
+                .long_help(
+                    "timestamp: the number of non-leap milliseconds since January 1, 1970 0:00:00 UTC
+rfc2822: RFC 2822 date and time string such as Tue, 1 Jul 2003 10:52:37 +0200
+rfc3339: FC 3339 and ISO 8601 date and time string such as 1996-12-19T16:39:57-08:00"
+                )
                 .default_value("rfc3339"),
         )
         .subcommand(
