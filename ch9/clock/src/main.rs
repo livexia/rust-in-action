@@ -1,7 +1,10 @@
-use std::{error::Error, fmt::Display};
+use std::{error::Error, fmt::Display, str::FromStr};
 
 use chrono::Local;
 use clap::{Arg, ArgAction, Command};
+use color_eyre::{eyre::Context, Report};
+use tracing::{info, instrument};
+use tracing_subscriber::{filter::Targets, layer::SubscriberExt, util::SubscriberInitExt};
 
 #[derive(Debug)]
 enum ClockError {
@@ -50,6 +53,7 @@ impl Clock {
 
     // see: https://linux.die.net/man/2/settimeofday
     #[cfg(unix)]
+    #[instrument]
     fn set(format: &str, datetime: &str, dry_run: bool) -> Result<(), ClockError> {
         use std::mem::zeroed;
 
@@ -69,6 +73,7 @@ impl Clock {
 
         // convert input datetime's timezone with local timezone to avoid confusing
         let dt = dt.with_timezone(&Local);
+        info!("set time with: {:?}", dt);
 
         if dry_run {
             return Ok(());
@@ -98,7 +103,19 @@ impl Clock {
     }
 }
 
-fn main() {
+#[instrument]
+fn main() -> Result<(), Report> {
+    color_eyre::install()?;
+
+    let filter_layer =
+        Targets::from_str(std::env::var("RUST_LOG").as_deref().unwrap_or("info")).unwrap();
+    let format_layer = tracing_subscriber::fmt::layer();
+    tracing_subscriber::registry()
+        .with(filter_layer)
+        .with(format_layer)
+        .with(tracing_error::ErrorLayer::default())
+        .init();
+
     let matches = Command::new("Clock")
         .version("0.1")
         .about("Gets and (aspirationally) sets the time")
@@ -132,12 +149,12 @@ fn main() {
         Some(("set", set_matches)) => {
             let datetime = set_matches.get_one::<String>("datetime").unwrap();
             let dry_run = set_matches.get_flag("dry run");
-            dbg!("dry run: {}", dry_run);
-            Clock::set(format, datetime, dry_run).expect("unable to set the clock");
+            Clock::set(format, datetime, dry_run).wrap_err("unable to set the clock")?;
         }
         Some(_) | None => {
             let now = Clock::get(format);
             println!("{now}");
         }
     }
+    Ok(())
 }
