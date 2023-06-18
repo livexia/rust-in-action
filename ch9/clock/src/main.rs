@@ -42,6 +42,7 @@ impl From<std::io::Error> for ClockError {
 struct Clock;
 
 impl Clock {
+    #[instrument]
     fn get(format: &str) -> String {
         match format {
             "timestamp" => Local::now().timestamp().to_string(),
@@ -54,7 +55,7 @@ impl Clock {
     // see: https://linux.die.net/man/2/settimeofday
     #[cfg(unix)]
     #[instrument]
-    fn set(format: &str, datetime: &str, dry_run: bool) -> Result<(), ClockError> {
+    fn set(format: &str, datetime: &str, dry_run: bool) -> Result<(), Report> {
         use std::mem::zeroed;
 
         use chrono::DateTime;
