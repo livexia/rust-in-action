@@ -1,5 +1,33 @@
+use std::{error::Error, fmt::Display};
+
 use chrono::Local;
 use clap::{Arg, Command};
+
+#[derive(Debug)]
+enum ClockError {
+    ChronoParse(chrono::ParseError),
+    TimestampParse(std::num::ParseIntError),
+}
+
+impl Display for ClockError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self:?}")
+    }
+}
+
+impl Error for ClockError {}
+
+impl From<chrono::ParseError> for ClockError {
+    fn from(value: chrono::ParseError) -> Self {
+        Self::ChronoParse(value)
+    }
+}
+
+impl From<std::num::ParseIntError> for ClockError {
+    fn from(value: std::num::ParseIntError) -> Self {
+        Self::TimestampParse(value)
+    }
+}
 
 struct Clock;
 
@@ -14,7 +42,21 @@ impl Clock {
     }
 
     #[cfg(unix)]
-    fn set(_format: &str, _datetime: &str) -> ! {
+    fn set(format: &str, datetime: &str) -> Result<(), ClockError> {
+        use chrono::DateTime;
+
+        let dt = match format {
+            "timestamp" => {
+                let unix_ts: i64 = datetime.parse()?;
+                dbg!(unix_ts);
+                todo!()
+            }
+            "rfc2822" => DateTime::parse_from_rfc2822(datetime),
+            "rfc3339" => DateTime::parse_from_rfc3339(datetime),
+            _ => unreachable!(),
+        }?;
+
+        println!("{:?}", dt);
         unimplemented!("set datetime in unix is yet to be implemented")
     }
 
@@ -48,7 +90,7 @@ fn main() {
     match matches.subcommand() {
         Some(("set", set_matches)) => {
             let datetime = set_matches.get_one::<String>("datetime").unwrap();
-            Clock::set(format, datetime);
+            Clock::set(format, datetime).expect("unable to set the clock");
         }
         Some(_) | None => {
             let now = Clock::get(format);
