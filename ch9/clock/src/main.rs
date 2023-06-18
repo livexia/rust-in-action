@@ -7,6 +7,7 @@ use clap::{Arg, Command};
 enum ClockError {
     ChronoParse(chrono::ParseError),
     TimestampParse(std::num::ParseIntError),
+    Libc(std::io::Error),
 }
 
 impl Display for ClockError {
@@ -29,6 +30,12 @@ impl From<std::num::ParseIntError> for ClockError {
     }
 }
 
+impl From<std::io::Error> for ClockError {
+    fn from(value: std::io::Error) -> Self {
+        Self::Libc(value)
+    }
+}
+
 struct Clock;
 
 impl Clock {
@@ -41,9 +48,13 @@ impl Clock {
         }
     }
 
+    // see: https://linux.die.net/man/2/settimeofday
     #[cfg(unix)]
     fn set(format: &str, datetime: &str) -> Result<(), ClockError> {
+        use std::mem::zeroed;
+
         use chrono::DateTime;
+        use libc::{settimeofday, suseconds_t, time_t, timeval, timezone};
 
         let dt = match format {
             "timestamp" => {
@@ -56,8 +67,26 @@ impl Clock {
             _ => unreachable!(),
         }?;
 
-        println!("{:?}", dt);
-        unimplemented!("set datetime in unix is yet to be implemented")
+        dbg!(&dt);
+        dbg!(dt.timezone());
+        dbg!(dt.with_timezone(&Local));
+
+        // UNSAFE: init the timeval struct with zeroed
+        let mut tv: timeval = unsafe { zeroed() };
+
+        tv.tv_sec = dt.timestamp() as time_t;
+        tv.tv_usec = dt.timestamp_subsec_micros() as suseconds_t;
+
+        // UNSAFE: set the datetime but do not change the timezon
+        unsafe {
+            let mock_tz: *const timezone = std::ptr::null();
+            let result = settimeofday(&tv as *const timeval, mock_tz);
+            if result != 0 {
+                return Err(std::io::Error::last_os_error().into());
+            }
+        }
+
+        Ok(())
     }
 
     #[cfg(windows)]
