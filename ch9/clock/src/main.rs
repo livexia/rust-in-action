@@ -13,8 +13,14 @@ impl Clock {
         }
     }
 
+    #[cfg(unix)]
     fn set(_format: &str, _datetime: &str) -> ! {
-        unimplemented!("set is yet to be implemented")
+        unimplemented!("set datetime in unix is yet to be implemented")
+    }
+
+    #[cfg(windows)]
+    fn set(_format: &str, _datetime: &str) -> ! {
+        unimplemented!("set datetime on windows is ye to be implemented")
     }
 }
 
