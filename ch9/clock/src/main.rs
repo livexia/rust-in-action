@@ -1,6 +1,7 @@
 use std::{error::Error, fmt::Display, str::FromStr};
 
-use chrono::Local;
+use chrono::{DateTime, Local, LocalResult, TimeZone};
+
 use clap::{Arg, ArgAction, Command};
 use color_eyre::{eyre::Context, Report};
 use tracing::{info, instrument};
@@ -49,6 +50,23 @@ impl Clock {
             "timestamp" => Local::now().timestamp_millis().to_string(),
             "rfc2822" => Local::now().to_rfc2822(),
             "rfc3339" => Local::now().to_rfc3339(),
+            _ => unreachable!(),
+        }
+    }
+
+    fn from_str(format: &str, datetime: &str) -> Result<DateTime<Local>, Report> {
+        match format {
+            "timestamp" => {
+                let millis: i64 = datetime.parse()?;
+                match Local.timestamp_millis_opt(millis) {
+                    LocalResult::Single(dt) => Ok(dt.with_timezone(&Local)),
+                    _ => Err(Report::new(ClockError::Custom(
+                        "Incorrect timestamp_millis".to_string(),
+                    ))),
+                }
+            }
+            "rfc2822" => Ok(DateTime::parse_from_rfc2822(datetime)?.with_timezone(&Local)),
+            "rfc3339" => Ok(DateTime::parse_from_rfc3339(datetime)?.with_timezone(&Local)),
             _ => unreachable!(),
         }
     }
@@ -106,8 +124,57 @@ impl Clock {
     }
 
     #[cfg(windows)]
-    fn set(_format: &str, _datetime: &str, dry_run: bool) -> ! {
-        unimplemented!("set datetime on windows is ye to be implemented")
+    #[instrument]
+    fn set(_format: &str, _datetime: &str, dry_run: bool) -> Result<(), Report> {
+        use chrono::{Datelike, Timelike};
+        use std::mem::zeroed;
+
+        use winapi::shared::minwindef::WORD;
+        use winapi::um::{minwinbase::SYSTEMTIME, sysinfoapi::SetLocalTime};
+
+        let dt = Clock::from_str(_format, _datetime)?;
+        info!("set time with: {:?}", dt);
+        if dry_run {
+            return Ok(());
+        }
+
+        // UNSAFE: init the systime with zeroed
+        let mut st: SYSTEMTIME = unsafe { zeroed() };
+
+        let dow = dt.weekday().num_days_from_sunday();
+
+        let mut ns = dt.nanosecond();
+        let mut leap = 0;
+        let is_leap_second = ns >= 1_000_000_000;
+
+        if is_leap_second {
+            ns -= 1_000_000_000;
+            leap += 1;
+        }
+
+        st.wYear = dt.year() as WORD;
+        st.wMonth = dt.month() as WORD;
+        st.wDayOfWeek = dow as WORD;
+        st.wDay = dt.day() as WORD;
+        st.wHour = dt.hour() as WORD;
+        st.wMinute = dt.minute() as WORD;
+        st.wSecond = (leap + dt.second()) as WORD;
+        st.wMilliseconds = (ns / 1_000_000) as WORD;
+
+        let st_ptr = &st as *const SYSTEMTIME;
+
+        // UNSAFE: set the datetime but do not change the timezone
+        unsafe {
+            // SetSystemTime: Sets the current system time and date. The system time is expressed in Coordinated Universal Time (UTC).
+            // SetLocalTime: Sets the current local time and date.
+
+            let result = SetLocalTime(st_ptr);
+            if result == 0 {
+                return Err(std::io::Error::last_os_error().into());
+            }
+        }
+
+        Ok(())
     }
 }
 
