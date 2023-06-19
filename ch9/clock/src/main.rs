@@ -104,7 +104,7 @@ impl Clock {
 
     #[cfg(windows)]
     #[instrument]
-    fn set(_format: &str, _datetime: &str, dry_run: bool) -> Result<i32, Report> {
+    fn set(_format: &str, _datetime: &str, dry_run: bool) -> Result<(), Report> {
         use chrono::{Datelike, Timelike};
         use std::mem::zeroed;
 
@@ -114,7 +114,7 @@ impl Clock {
         let dt = Clock::from_str(_format, _datetime)?;
         info!("set time with: {:?}", dt);
         if dry_run {
-            return Ok(0);
+            return Ok(());
         }
 
         // UNSAFE: init the systime with zeroed
@@ -145,9 +145,10 @@ impl Clock {
         // UNSAFE: set the datetime but do not change the timezone
         // SetSystemTime: Sets the current system time and date. The system time is expressed in Coordinated Universal Time (UTC).
         // SetLocalTime: Sets the current local time and date.
-        let result = unsafe { SetLocalTime(st_ptr) };
-
-        Ok(result)
+        match unsafe { SetLocalTime(st_ptr) } {
+            0 => Err(std::io::Error::last_os_error().into()),
+            _ => Ok(()),
+        }
     }
 }
 
