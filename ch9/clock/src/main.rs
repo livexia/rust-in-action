@@ -77,26 +77,9 @@ impl Clock {
     fn set(format: &str, datetime: &str, dry_run: bool) -> Result<(), Report> {
         use std::mem::zeroed;
 
-        use chrono::{DateTime, LocalResult, TimeZone};
         use libc::{settimeofday, suseconds_t, time_t, timeval, timezone};
 
-        let dt = match format {
-            "timestamp" => {
-                let millis: i64 = datetime.parse()?;
-                match Local.timestamp_millis_opt(millis) {
-                    LocalResult::Single(dt) => dt.with_timezone(&Local),
-                    _ => {
-                        return Err(Report::new(ClockError::Custom(
-                            "Incorrect timestamp_millis".to_string(),
-                        )))
-                    }
-                }
-            }
-            "rfc2822" => DateTime::parse_from_rfc2822(datetime)?.with_timezone(&Local),
-            "rfc3339" => DateTime::parse_from_rfc3339(datetime)?.with_timezone(&Local),
-            _ => unreachable!(),
-        };
-
+        let dt = Clock::from_str(format, datetime)?;
         // convert input datetime's timezone with local timezone to avoid confusing
         // let dt = dt.with_timezone(&Local);
         info!("set time with: {:?}", dt);
@@ -107,25 +90,21 @@ impl Clock {
 
         // UNSAFE: init the timeval struct with zeroed
         let mut tv: timeval = unsafe { zeroed() };
-
         tv.tv_sec = dt.timestamp() as time_t;
         tv.tv_usec = dt.timestamp_subsec_micros() as suseconds_t;
 
-        // UNSAFE: set the datetime but do not change the timezon
-        unsafe {
-            let mock_tz: *const timezone = std::ptr::null();
-            let result = settimeofday(&tv as *const timeval, mock_tz);
-            if result != 0 {
-                return Err(std::io::Error::last_os_error().into());
-            }
-        }
+        let mock_tz: *const timezone = std::ptr::null();
 
-        Ok(())
+        // UNSAFE: set the datetime but do not change the timezon
+        match unsafe { settimeofday(&tv as *const timeval, mock_tz) } {
+            0 => Ok(()),
+            _ => Err(std::io::Error::last_os_error().into()),
+        }
     }
 
     #[cfg(windows)]
     #[instrument]
-    fn set(_format: &str, _datetime: &str, dry_run: bool) -> Result<(), Report> {
+    fn set(_format: &str, _datetime: &str, dry_run: bool) -> Result<i32, Report> {
         use chrono::{Datelike, Timelike};
         use std::mem::zeroed;
 
@@ -135,7 +114,7 @@ impl Clock {
         let dt = Clock::from_str(_format, _datetime)?;
         info!("set time with: {:?}", dt);
         if dry_run {
-            return Ok(());
+            return Ok(0);
         }
 
         // UNSAFE: init the systime with zeroed
@@ -164,17 +143,11 @@ impl Clock {
         let st_ptr = &st as *const SYSTEMTIME;
 
         // UNSAFE: set the datetime but do not change the timezone
-        unsafe {
-            // SetSystemTime: Sets the current system time and date. The system time is expressed in Coordinated Universal Time (UTC).
-            // SetLocalTime: Sets the current local time and date.
+        // SetSystemTime: Sets the current system time and date. The system time is expressed in Coordinated Universal Time (UTC).
+        // SetLocalTime: Sets the current local time and date.
+        let result = unsafe { SetLocalTime(st_ptr) };
 
-            let result = SetLocalTime(st_ptr);
-            if result == 0 {
-                return Err(std::io::Error::last_os_error().into());
-            }
-        }
-
-        Ok(())
+        Ok(result)
     }
 }
 
