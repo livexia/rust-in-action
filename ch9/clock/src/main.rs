@@ -1,3 +1,5 @@
+mod ntp;
+
 use std::{error::Error, fmt::Display, str::FromStr};
 
 use chrono::{DateTime, Local, LocalResult, TimeZone};
