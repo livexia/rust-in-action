@@ -204,6 +204,7 @@ rfc3339: FC 3339 and ISO 8601 date and time string such as 1996-12-19T16:39:57-0
 
     match matches.subcommand() {
         Some(("set", set_matches)) => {
+            println!("{:?}", ntp::check_time());
             let datetime = set_matches.get_one::<String>("datetime").unwrap();
             let dry_run = set_matches.get_flag("dry run");
             Clock::set(format, datetime, dry_run).wrap_err("unable to set the clock")?;

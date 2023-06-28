@@ -9,16 +9,18 @@ struct NTPResult {
 }
 
 impl NTPResult {
-    fn offset(&self) -> u32 {
-        todo!()
+    fn offset(&self) -> i64 {
+        (((self.t2 - self.t1) + (self.t4 - self.t3)) / 2).num_milliseconds()
     }
 
-    fn delay(&self) -> u32 {
-        todo!()
+    fn delay(&self) -> i64 {
+        ((self.t4 - self.t1) - (self.t3 - self.t2)).num_milliseconds()
     }
 }
 
 fn ntp_roundtrip(host: &str, port: u16) -> Result<NTPResult, std::io::Error> {
+    let destination = format!("{}:{}", host, port);
+    println!("ntp server: {destination}");
     todo!()
 }
 
@@ -31,7 +33,7 @@ fn weighted_mean(offsets: &[f64], offset_weights: &[f64]) -> f64 {
         / offset_weights.iter().sum::<f64>()
 }
 
-fn check_time() -> Result<f64, std::io::Error> {
+pub fn check_time() -> Result<f64, std::io::Error> {
     const NTP_PORT: u16 = 123;
 
     let servers = [
