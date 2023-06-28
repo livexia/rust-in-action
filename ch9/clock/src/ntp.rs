@@ -18,11 +18,17 @@ impl NTPResult {
     }
 }
 
-fn ntp_roundtrip(server: &str, ntp_port: u16) -> Result<NTPResult, std::io::Error> {
+fn ntp_roundtrip(host: &str, port: u16) -> Result<NTPResult, std::io::Error> {
     todo!()
 }
+
+// see: https://en.wikipedia.org/wiki/Weighted_arithmetic_mean
 fn weighted_mean(offsets: &[f64], offset_weights: &[f64]) -> f64 {
-    todo!()
+    offsets
+        .iter()
+        .zip(offset_weights)
+        .fold(0f64, |s, (x, w)| s + x * w)
+        / offset_weights.iter().sum::<f64>()
 }
 
 fn check_time() -> Result<f64, std::io::Error> {
