@@ -1,7 +1,10 @@
+use std::{net::UdpSocket, time::Duration};
+
 use chrono::{DateTime, Utc};
 
 // without authenticator
 const NTP_MESSAGE_LENGTH: usize = 48;
+const LOCAL_ADDR: &str = "0.0.0.0:1230";
 
 #[derive(Debug)]
 struct NTPResult {
@@ -47,7 +50,28 @@ impl NTPMessage {
 
 fn ntp_roundtrip(host: &str, port: u16) -> Result<NTPResult, std::io::Error> {
     let destination = format!("{}:{}", host, port);
+    let timeout = Duration::from_secs(1);
     println!("ntp server: {destination}");
+
+    let request = NTPMessage::client();
+    let mut response = NTPMessage::new();
+
+    let message = request.data;
+
+    let udp = UdpSocket::bind(LOCAL_ADDR)?;
+    udp.connect(&destination).expect("unable to connect");
+
+    let t1 = Utc::now();
+
+    udp.send(&message)?;
+    udp.set_read_timeout(Some(timeout))?;
+    udp.recv_from(&mut response.data)?;
+
+    let t4 = Utc::now();
+
+    dbg!(&t1);
+    dbg!(&response.data);
+    dbg!(&t4);
     todo!()
 }
 
