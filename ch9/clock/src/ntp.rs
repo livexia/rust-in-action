@@ -1,11 +1,19 @@
 use chrono::{DateTime, Utc};
 
+// without authenticator
+const NTP_MESSAGE_LENGTH: usize = 48;
+
 #[derive(Debug)]
 struct NTPResult {
     t1: DateTime<Utc>,
     t2: DateTime<Utc>,
     t3: DateTime<Utc>,
     t4: DateTime<Utc>,
+}
+
+#[derive(Debug)]
+struct NTPMessage {
+    data: [u8; NTP_MESSAGE_LENGTH],
 }
 
 impl NTPResult {
@@ -15,6 +23,25 @@ impl NTPResult {
 
     fn delay(&self) -> i64 {
         ((self.t4 - self.t1) - (self.t3 - self.t2)).num_milliseconds()
+    }
+}
+
+impl NTPMessage {
+    fn new() -> Self {
+        Self {
+            data: [0; NTP_MESSAGE_LENGTH],
+        }
+    }
+
+    fn client() -> Self {
+        const VN: u8 = 0b00_100_000; // version 4
+        const MODE: u8 = 0b_00_000_011; // mode client
+
+        let mut msg = Self::new();
+        msg.data[0] |= VN;
+        msg.data[0] |= MODE;
+
+        msg
     }
 }
 
