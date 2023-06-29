@@ -31,8 +31,10 @@ struct NTPTimestamp {
 }
 
 impl NTPResult {
+    // wrong offset defintion in the book
+    // see: https://github.com/rust-in-action/code/issues/86
     fn offset(&self) -> i64 {
-        (((self.t2 - self.t1) + (self.t4 - self.t3)) / 2).num_milliseconds()
+        ((self.t2 - self.t1) + (self.t3 - self.t4)).num_milliseconds() / 2
     }
 
     fn delay(&self) -> i64 {
@@ -109,8 +111,7 @@ fn ntp_roundtrip(host: &str, port: u16) -> Result<NTPResult, std::io::Error> {
 
     let t2 = response.rx_time()?.into();
 
-    let t3: DateTime<Utc> = response.tx_time()?.into();
-    info!("{:?}", t3.with_timezone(&chrono::Local));
+    let t3 = response.tx_time()?.into();
 
     Ok(NTPResult { t1, t2, t3, t4 })
 }
