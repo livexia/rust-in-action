@@ -1,10 +1,14 @@
 use std::{net::UdpSocket, time::Duration};
 
-use chrono::{DateTime, Utc};
+use byteorder::{BigEndian, ReadBytesExt};
+use chrono::{DateTime, TimeZone, Utc};
 
 // without authenticator
 const NTP_MESSAGE_LENGTH: usize = 48;
 const LOCAL_ADDR: &str = "0.0.0.0:1230";
+
+// see: https://stackoverflow.com/a/29138806
+const NTP_TO_UNIX_SECONDS: i64 = (70 * 365 + 17) * 86400;
 
 #[derive(Debug)]
 struct NTPResult {
@@ -17,6 +21,12 @@ struct NTPResult {
 #[derive(Debug)]
 struct NTPMessage {
     data: [u8; NTP_MESSAGE_LENGTH],
+}
+
+#[derive(Debug)]
+struct NTPTimestamp {
+    seconds: u32,
+    fraction: u32,
 }
 
 impl NTPResult {
@@ -46,6 +56,34 @@ impl NTPMessage {
 
         msg
     }
+
+    fn parse_timestamp(&self, i: usize) -> Result<NTPTimestamp, std::io::Error> {
+        let mut reader = &self.data[i..i + 8];
+        let seconds = reader.read_u32::<BigEndian>()?;
+        let fraction = reader.read_u32::<BigEndian>()?;
+
+        Ok(NTPTimestamp { seconds, fraction })
+    }
+
+    fn rx_time(&self) -> Result<NTPTimestamp, std::io::Error> {
+        self.parse_timestamp(32)
+    }
+
+    fn tx_time(&self) -> Result<NTPTimestamp, std::io::Error> {
+        self.parse_timestamp(40)
+    }
+}
+
+impl From<NTPTimestamp> for DateTime<Utc> {
+    fn from(ntp: NTPTimestamp) -> Self {
+        let secs = ntp.seconds as i64 - NTP_TO_UNIX_SECONDS;
+        let mut nsecs = ntp.fraction as f64;
+
+        nsecs *= 1e9;
+        nsecs /= 2_f64.powi(32);
+
+        Utc.timestamp_opt(secs, nsecs as u32).unwrap()
+    }
 }
 
 fn ntp_roundtrip(host: &str, port: u16) -> Result<NTPResult, std::io::Error> {
@@ -69,10 +107,11 @@ fn ntp_roundtrip(host: &str, port: u16) -> Result<NTPResult, std::io::Error> {
 
     let t4 = Utc::now();
 
-    dbg!(&t1);
-    dbg!(&response.data);
-    dbg!(&t4);
-    todo!()
+    let t2 = response.rx_time()?.into();
+
+    let t3 = response.tx_time()?.into();
+
+    Ok(NTPResult { t1, t2, t3, t4 })
 }
 
 // see: https://en.wikipedia.org/wiki/Weighted_arithmetic_mean
