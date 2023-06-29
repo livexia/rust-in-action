@@ -51,7 +51,7 @@ impl NTPMessage {
 
     fn client() -> Self {
         const VN: u8 = 0b00_100_000; // version 4
-        const MODE: u8 = 0b_00_000_011; // mode client
+        const MODE: u8 = 0b011; // mode client
 
         let mut msg = Self::new();
         msg.data[0] |= VN;
@@ -99,7 +99,7 @@ fn ntp_roundtrip(host: &str, port: u16) -> Result<NTPResult, std::io::Error> {
     let message = request.data;
 
     let udp = UdpSocket::bind(LOCAL_ADDR)?;
-    udp.connect(&destination).expect("unable to connect");
+    udp.connect(destination).expect("unable to connect");
 
     let t1 = Utc::now();
 

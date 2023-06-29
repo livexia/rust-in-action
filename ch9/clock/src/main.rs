@@ -200,7 +200,7 @@ rfc3339: FC 3339 and ISO 8601 date and time string such as 1996-12-19T16:39:57-0
         )
         .subcommand(
             Command::new("ntp")
-                .about("Set local time from ntp")
+                .about("Set local time from ntp, ignore format")
                 .arg(
                     Arg::new("dry run")
                         .long("dry-run")
@@ -220,11 +220,11 @@ rfc3339: FC 3339 and ISO 8601 date and time string such as 1996-12-19T16:39:57-0
         }
         Some(("ntp", ntp_matches)) => {
             let offset = ntp::check_time()? as isize;
-            info!("ntp offset: {}", offset);
 
-            let adjust_ms = offset.signum() * offset.abs().min(200) / 5;
-            let adjust_ms = chrono::Duration::milliseconds(adjust_ms as i64);
-            info!("adjust: {}", adjust_ms);
+            // see: https://github.com/rust-in-action/code/issues/86
+            // let offset = offset.signum() * offset.abs().min(200) / 5;
+            let adjust_ms = chrono::Duration::milliseconds(offset as i64);
+            info!("adjust ms: {}", adjust_ms);
 
             let now = (Utc::now() + adjust_ms).to_rfc3339();
             let dry_run = ntp_matches.get_flag("dry run");
