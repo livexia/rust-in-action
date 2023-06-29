@@ -2,7 +2,7 @@ mod ntp;
 
 use std::{error::Error, fmt::Display, str::FromStr};
 
-use chrono::{DateTime, Local, LocalResult, TimeZone};
+use chrono::{DateTime, Local, LocalResult, TimeZone, Utc};
 
 use clap::{Arg, ArgAction, Command};
 use color_eyre::{eyre::Context, Report};
@@ -185,12 +185,22 @@ rfc3339: FC 3339 and ISO 8601 date and time string such as 1996-12-19T16:39:57-0
         )
         .subcommand(
             Command::new("get")
-                .about("Set local time with corresponding format and local timezone"),
+                .about("get local time with corresponding format and local timezone"),
         )
         .subcommand(
             Command::new("set")
-                .about("Get local time with corresponding format")
+                .about("Set local time with corresponding format")
                 .arg(Arg::new("datetime").required(true))
+                .arg(
+                    Arg::new("dry run")
+                        .long("dry-run")
+                        .short('d')
+                        .action(ArgAction::SetTrue),
+                ),
+        )
+        .subcommand(
+            Command::new("ntp")
+                .about("Set local time from ntp")
                 .arg(
                     Arg::new("dry run")
                         .long("dry-run")
@@ -204,10 +214,21 @@ rfc3339: FC 3339 and ISO 8601 date and time string such as 1996-12-19T16:39:57-0
 
     match matches.subcommand() {
         Some(("set", set_matches)) => {
-            println!("{:?}", ntp::check_time());
             let datetime = set_matches.get_one::<String>("datetime").unwrap();
             let dry_run = set_matches.get_flag("dry run");
             Clock::set(format, datetime, dry_run).wrap_err("unable to set the clock")?;
+        }
+        Some(("ntp", ntp_matches)) => {
+            let offset = ntp::check_time()? as isize;
+            info!("ntp offset: {}", offset);
+
+            let adjust_ms = offset.signum() * offset.abs().min(200) / 5;
+            let adjust_ms = chrono::Duration::milliseconds(adjust_ms as i64);
+            info!("adjust: {}", adjust_ms);
+
+            let now = (Utc::now() + adjust_ms).to_rfc3339();
+            let dry_run = ntp_matches.get_flag("dry run");
+            Clock::set("rfc3339", &now, dry_run).wrap_err("unable to set the clock")?;
         }
         Some(_) | None => {
             let now = Clock::get(format);

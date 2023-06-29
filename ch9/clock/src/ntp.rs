@@ -2,6 +2,7 @@ use std::{net::UdpSocket, time::Duration};
 
 use byteorder::{BigEndian, ReadBytesExt};
 use chrono::{DateTime, TimeZone, Utc};
+use tracing::info;
 
 // without authenticator
 const NTP_MESSAGE_LENGTH: usize = 48;
@@ -89,7 +90,6 @@ impl From<NTPTimestamp> for DateTime<Utc> {
 fn ntp_roundtrip(host: &str, port: u16) -> Result<NTPResult, std::io::Error> {
     let destination = format!("{}:{}", host, port);
     let timeout = Duration::from_secs(1);
-    println!("ntp server: {destination}");
 
     let request = NTPMessage::client();
     let mut response = NTPMessage::new();
@@ -109,7 +109,8 @@ fn ntp_roundtrip(host: &str, port: u16) -> Result<NTPResult, std::io::Error> {
 
     let t2 = response.rx_time()?.into();
 
-    let t3 = response.tx_time()?.into();
+    let t3: DateTime<Utc> = response.tx_time()?.into();
+    info!("{:?}", t3.with_timezone(&chrono::Local));
 
     Ok(NTPResult { t1, t2, t3, t4 })
 }
@@ -140,17 +141,19 @@ pub fn check_time() -> Result<f64, std::io::Error> {
     let mut times = Vec::with_capacity(servers.len());
 
     for &server in &servers {
-        print!("{} =>", server);
-
         let calc = ntp_roundtrip(server, NTP_PORT);
 
         match calc {
             Ok(time) => {
-                println!(" {}ms away from local system time", time.offset());
+                info!(
+                    "{} => {}ms away from local system time",
+                    server,
+                    time.offset()
+                );
                 times.push(time);
             }
             Err(_) => {
-                println!(" ? [response took too long]");
+                info!("{} => ? [response took too long]", server);
             }
         }
     }
